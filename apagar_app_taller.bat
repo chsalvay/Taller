@@ -1,37 +1,27 @@
 @echo off
-setlocal EnableExtensions
+setlocal
 
-set "APP_DIR=%~dp0"
-cd /d "%APP_DIR%"
+set "XAMPP_ROOT=C:\xampp"
+set "MYSQL_STOP=%XAMPP_ROOT%\mysql_stop.bat"
 
-echo Deteniendo servidor web de APP_TALLER (puerto 8000)...
-set "WEB_FOUND="
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING"') do (
-    set "WEB_FOUND=1"
-    taskkill /PID %%a /F >nul 2>&1
+echo.
+echo [APP_TALLER] Cerrando servicios...
+
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING"') do (
+	taskkill /PID %%p /F >nul 2>&1
 )
 
-if not defined WEB_FOUND (
-    echo No habia proceso escuchando en 8000.
+if exist "%MYSQL_STOP%" (
+	start "APP_TALLER_MYSQL_STOP" cmd /c "\"%MYSQL_STOP%\""
+	echo [INFO] Solicitud de detencion de MySQL enviada.
 ) else (
-    echo Servidor web detenido.
+	echo [WARN] No se encontro mysql_stop.bat en %XAMPP_ROOT%.
 )
 
-echo Deteniendo MariaDB local (mariadbd.exe en puerto 3306)...
-set "DB_FOUND="
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3306" ^| findstr "LISTENING"') do (
-    tasklist /FI "PID eq %%a" | find /I "mariadbd.exe" >nul
-    if not errorlevel 1 (
-        set "DB_FOUND=1"
-        taskkill /PID %%a /F >nul 2>&1
-    )
-)
+rem Refuerzo: si MySQL fue iniciado en consola separada, cerrarlo por proceso.
+taskkill /IM mysqld.exe /F >nul 2>&1
+taskkill /IM mariadbd.exe /F >nul 2>&1
 
-if not defined DB_FOUND (
-    echo No habia mariadbd.exe escuchando en 3306.
-) else (
-    echo MariaDB local detenida.
-)
-
-echo APP_TALLER detenida.
+echo [OK] Cierre solicitado.
+echo.
 exit /b 0

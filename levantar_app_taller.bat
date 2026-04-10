@@ -1,104 +1,73 @@
 @echo off
-setlocal EnableExtensions EnableDelayedExpansion
+setlocal
 
-set "APP_DIR=%~dp0"
-cd /d "%APP_DIR%"
+set "PROJECT_ROOT=%~dp0"
+if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
+set "XAMPP_ROOT=C:\xampp"
+set "MYSQL_START=%XAMPP_ROOT%\mysql_start.bat"
+set "MYSQL_CLI=%XAMPP_ROOT%\mysql\bin\mysql.exe"
 
-set "PHP_EXE="
-for %%P in (
-    "%LOCALAPPDATA%\Microsoft\WinGet\Packages\PHP.PHP.8.3_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe"
-    "C:\xampp\php\php.exe"
-    "C:\php\php.exe"
-) do (
-    if exist "%%~P" (
-        set "PHP_EXE=%%~P"
-        goto :php_found
-    )
-)
+echo.
+echo [APP_TALLER] Iniciando entorno local...
 
-echo [ERROR] No se encontro php.exe. Instala PHP o XAMPP.
-pause
-exit /b 1
-
-:php_found
-set "MARIADB_BIN=C:\Program Files\MariaDB 12.2\bin"
-set "MARIADB_INSTALL_DB=%MARIADB_BIN%\mariadb-install-db.exe"
-set "MARIADBD_EXE=%MARIADB_BIN%\mariadbd.exe"
-set "MARIADB_CLIENT=%MARIADB_BIN%\mariadb.exe"
-
-set "DATA_DIR=%APP_DIR%storage\mariadb-data"
-set "LOG_DIR=%APP_DIR%storage\mariadb-logs"
-set "LOG_FILE=%LOG_DIR%\mariadb.log"
-
-if not exist "%APP_DIR%.env" (
-    if exist "%APP_DIR%.env.example" (
-        copy /Y "%APP_DIR%.env.example" "%APP_DIR%.env" >nul
-    )
-)
-
-if not exist "%DATA_DIR%" mkdir "%DATA_DIR%"
-if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
-
-if not exist "%DATA_DIR%\mysql" (
-    if not exist "%MARIADB_INSTALL_DB%" (
-        echo [ERROR] No se encontro mariadb-install-db.exe en "%MARIADB_BIN%".
-        echo Instala MariaDB.Server o ajusta la ruta en este .bat.
-        pause
-        exit /b 1
-    )
-    echo Inicializando MariaDB local...
-    "%MARIADB_INSTALL_DB%" -d "%DATA_DIR%"
-    if errorlevel 1 (
-        echo [ERROR] Fallo la inicializacion de MariaDB.
-        pause
-        exit /b 1
-    )
-)
-
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3306" ^| findstr "LISTENING"') do set "DB_PID=%%a"
-if "%DB_PID%"=="" (
-    if not exist "%MARIADBD_EXE%" (
-        echo [ERROR] No se encontro mariadbd.exe en "%MARIADB_BIN%".
-        pause
-        exit /b 1
-    )
-    echo Iniciando MariaDB local en 127.0.0.1:3306...
-    start "APP_TALLER_DB" /min "%MARIADBD_EXE%" --datadir="%DATA_DIR%" --bind-address=127.0.0.1 --port=3306 --log-error="%LOG_FILE%"
-)
-
-set "DB_READY="
-for /L %%i in (1,1,15) do (
-    "%MARIADB_CLIENT%" -h 127.0.0.1 -P 3306 -u root -e "SELECT 1;" >nul 2>&1
-    if not errorlevel 1 (
-        set "DB_READY=1"
-        goto :db_ready
-    )
-    timeout /t 1 /nobreak >nul
-)
-
-:db_ready
-if "%DB_READY%"=="" (
-    echo [ERROR] MariaDB no quedo disponible en puerto 3306.
-    echo Revisa el log: %LOG_FILE%
-    pause
-    exit /b 1
-)
-
-echo Sincronizando schema...
-"%MARIADB_CLIENT%" -h 127.0.0.1 -P 3306 -u root -e "SOURCE %APP_DIR%database\schema.sql"
+where php >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Fallo la importacion de schema.sql
-    pause
-    exit /b 1
+	echo [ERROR] No se encontro PHP en PATH.
+	echo         Instala PHP o abre este script desde una terminal con PHP disponible.
+	exit /b 1
 )
 
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING"') do (
-    taskkill /PID %%a /F >nul 2>&1
+if not exist "%MYSQL_START%" (
+	echo [ERROR] No se encontro mysql_start.bat en %XAMPP_ROOT%.
+	echo         Verifica la instalacion de XAMPP.
+	exit /b 1
 )
 
-echo Iniciando APP_TALLER en http://localhost:8000 ...
-start "APP_TALLER_WEB" /min "%PHP_EXE%" -S localhost:8000 -t "%APP_DIR%public"
+netstat -ano | findstr ":3306" | findstr "LISTENING" >nul
+if errorlevel 1 (
+	echo [INFO] Iniciando MySQL de XAMPP...
+	start "APP_TALLER_MYSQL" cmd /c "\"%MYSQL_START%\""
 
-start "" "http://localhost:8000/"
-echo APP_TALLER iniciado.
+	for /L %%i in (1,1,20) do (
+		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3306); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+		if not errorlevel 1 goto mysql_ready
+		timeout /t 1 /nobreak >nul
+	)
+
+	echo [WARN] MySQL no respondio en 3306 dentro del tiempo esperado.
+) else (
+	echo [INFO] MySQL ya estaba activo en 3306.
+)
+
+:mysql_ready
+if exist "%MYSQL_CLI%" (
+	if exist "%PROJECT_ROOT%\database\schema.sql" (
+		echo [INFO] Sincronizando esquema de base de datos...
+		"%MYSQL_CLI%" -u root < "%PROJECT_ROOT%\database\schema.sql"
+		if errorlevel 1 (
+			echo [WARN] No se pudo importar schema.sql automaticamente.
+			echo        Verifica credenciales de root en MySQL.
+		) else (
+			echo [OK] Esquema listo.
+		)
+	)
+) else (
+	echo [WARN] No se encontro mysql.exe en XAMPP. Se omite importacion de esquema.
+)
+
+netstat -ano | findstr ":8000" | findstr "LISTENING" >nul
+if errorlevel 1 (
+	echo [INFO] Iniciando servidor web en http://127.0.0.1:8000 ...
+	start "APP_TALLER_PHP" cmd /k "cd /d \"%PROJECT_ROOT%\" && php -S 127.0.0.1:8000 -t public"
+) else (
+	echo [INFO] Ya existe un proceso escuchando en 8000.
+)
+
+start "" "http://127.0.0.1:8000/index.php"
+
+echo.
+echo [OK] Sistema iniciado.
+echo      Usuario: Admin
+echo      Contrasena: 123456
+echo.
 exit /b 0

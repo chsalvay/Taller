@@ -43,7 +43,7 @@ $isAdmin = isset($user['rol']) && $user['rol'] === 'Admin';
 
     <?php if ($isAdmin): ?>
         <div class="grid">
-            <a class="module" href="/compras.php">Compras</a>
+            <a class="module" href="/compras.php">Repuestos</a>
             <a class="module" href="/clientes.php">Clientes</a>
             <a class="module" href="/ordenes.php">Ordenes de Trabajo</a>
         </div>
