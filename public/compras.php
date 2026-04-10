@@ -263,24 +263,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
 
                     $success = 'Repuesto creado correctamente.';
-                    $form = [
-                        'id_repuesto' => 0,
-                        'sku' => '',
-                        'cod_oem' => '',
-                        'nombre' => '',
-                        'marca_id' => '',
-                        'vehiculo_marca_id' => '',
-                        'vehiculo_modelo_id' => '',
-                        'motorizacion_id' => '',
-                        'categoria_id' => '',
-                        'unidad_id' => '',
-                        'proveedor_id' => '',
-                        'precio_costo' => '0',
-                        'stock_actual' => '0',
-                        'stock_minimo' => '5',
-                        'activo' => '1',
-                    ];
-                    $formMode = 'new';
+                    $form['id_repuesto'] = $idRepuesto;
+                    $formMode = 'edit';
+                    $showForm = true;
                 }
 
                 $pdo->commit();
