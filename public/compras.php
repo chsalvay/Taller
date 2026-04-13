@@ -17,6 +17,11 @@ $success = '';
 $showForm = false;
 $formMode = 'new';
 
+if (isset($_SESSION['flash_success'])) {
+    $success = (string) $_SESSION['flash_success'];
+    unset($_SESSION['flash_success']);
+}
+
 try {
     $pdo = Database::connect($projectRoot);
 } catch (Throwable $e) {
@@ -61,10 +66,20 @@ $filters = [
     'activo' => (string) ($_GET['f_activo'] ?? ''),
 ];
 
+$hasActiveFilters =
+    $filters['nombre'] !== '' ||
+    $filters['marca_id'] > 0 ||
+    $filters['categoria_id'] > 0 ||
+    $filters['proveedor_id'] > 0 ||
+    ($filters['activo'] === '1' || $filters['activo'] === '0');
+
+$showFilters = isset($_GET['show_filters']) || $hasActiveFilters;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
 
     if ($action === 'save') {
+        $redirectToInitialState = false;
         $showForm = true;
         $formMode = 'edit';
         $idRepuesto = (int) ($_POST['id_repuesto'] ?? 0);
@@ -115,6 +130,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Completa todos los campos obligatorios.';
         } else {
             try {
+                $dupSku = $pdo->prepare(
+                    'SELECT 1
+                     FROM repuestos
+                     WHERE LOWER(sku) = LOWER(:sku)
+                       AND id_repuesto <> :id_repuesto
+                     LIMIT 1'
+                );
+                $dupSku->execute([
+                    'sku' => $sku,
+                    'id_repuesto' => $idRepuesto,
+                ]);
+
+                if ($dupSku->fetchColumn() !== false) {
+                    throw new RuntimeException('Ya existe un repuesto con ese SKU.');
+                }
+
+                if ($codOem !== '') {
+                    $dupOem = $pdo->prepare(
+                        'SELECT 1
+                         FROM repuestos
+                         WHERE LOWER(cod_oem) = LOWER(:cod_oem)
+                           AND id_repuesto <> :id_repuesto
+                         LIMIT 1'
+                    );
+                    $dupOem->execute([
+                        'cod_oem' => $codOem,
+                        'id_repuesto' => $idRepuesto,
+                    ]);
+
+                    if ($dupOem->fetchColumn() !== false) {
+                        throw new RuntimeException('Ya existe un repuesto con ese Código OEM.');
+                    }
+                }
+
                 $pdo->beginTransaction();
 
                 if ($idRepuesto > 0) {
@@ -263,12 +312,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
 
                     $success = 'Repuesto creado correctamente.';
-                    $form['id_repuesto'] = $idRepuesto;
-                    $formMode = 'edit';
-                    $showForm = true;
+                    $redirectToInitialState = true;
                 }
 
                 $pdo->commit();
+
+                if ($redirectToInitialState) {
+                    $_SESSION['flash_success'] = $success;
+                    header('Location: /compras.php');
+                    exit;
+                }
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
@@ -333,7 +386,8 @@ try {
                 vm.id_vehiculo_marca AS marca_id
          FROM vehiculos_modelos m
          INNER JOIN vehiculos_marcas vm ON vm.id_vehiculo_marca = m.id_vehiculo_marca
-         WHERE m.activo = 1
+          WHERE m.activo = 1
+            AND vm.activo = 1
          ORDER BY vm.nombre_marca_v, m.nombre_modelo'
     )->fetchAll();
     $catalogs['motorizaciones'] = $pdo->query('SELECT id_motorizacion AS id, nombre_motor AS nombre FROM motorizaciones WHERE activo = 1 ORDER BY nombre_motor')->fetchAll();
@@ -507,6 +561,7 @@ if ($selectedId > 0 && $error === '') {
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>
+            <a class="btn btn-muted" href="/compras.php?show_filters=1">Buscar</a>
             <a class="btn btn-primary" href="/compras.php?new=1">Nuevo</a>
         </div>
     </div>
@@ -534,7 +589,7 @@ if ($selectedId > 0 && $error === '') {
                     <input id="sku" name="sku" maxlength="50" required value="<?= htmlspecialchars((string) $form['sku']) ?>" <?= $formDisabledAttr ?>>
                 </div>
                 <div>
-                    <label for="cod_oem">Codigo OEM</label>
+                    <label for="cod_oem">Código OEM</label>
                     <input id="cod_oem" name="cod_oem" maxlength="100" value="<?= htmlspecialchars((string) $form['cod_oem']) ?>" <?= $formDisabledAttr ?>>
                 </div>
                 <div>
@@ -567,7 +622,7 @@ if ($selectedId > 0 && $error === '') {
                 </div>
 
                 <div>
-                    <label for="vehiculo_marca_id">Vehiculo marca</label>
+                    <label for="vehiculo_marca_id">Vehículo marca</label>
                     <select id="vehiculo_marca_id" name="vehiculo_marca_id" required <?= $formDisabledAttr ?>>
                         <option value="">Seleccionar...</option>
                         <?php foreach ($catalogs['vehiculos_marcas'] as $row): ?>
@@ -579,7 +634,7 @@ if ($selectedId > 0 && $error === '') {
                 </div>
 
                 <div>
-                    <label for="vehiculo_modelo_id">Vehiculo modelo</label>
+                    <label for="vehiculo_modelo_id">Vehículo modelo</label>
                     <select id="vehiculo_modelo_id" name="vehiculo_modelo_id" required <?= $formDisabledAttr ?>>
                         <option value="">Seleccionar...</option>
                         <?php foreach ($catalogs['vehiculos_modelos'] as $row): ?>
@@ -591,7 +646,7 @@ if ($selectedId > 0 && $error === '') {
                 </div>
 
                 <div>
-                    <label for="motorizacion_id">Motorizacion</label>
+                    <label for="motorizacion_id">Motorización</label>
                     <select id="motorizacion_id" name="motorizacion_id" required <?= $formDisabledAttr ?>>
                         <option value="">Seleccionar...</option>
                         <?php foreach ($catalogs['motorizaciones'] as $row): ?>
@@ -603,7 +658,7 @@ if ($selectedId > 0 && $error === '') {
                 </div>
 
                 <div>
-                    <label for="categoria_id">Categoria</label>
+                    <label for="categoria_id">Categoría</label>
                     <select id="categoria_id" name="categoria_id" required <?= $formDisabledAttr ?>>
                         <option value="">Seleccionar...</option>
                         <?php foreach ($catalogs['categorias'] as $row): ?>
@@ -658,9 +713,11 @@ if ($selectedId > 0 && $error === '') {
     </div>
     <?php endif; ?>
 
+    <?php if ($showFilters): ?>
     <div class="panel">
         <h2>Filtros de busqueda</h2>
         <form method="get" action="/compras.php">
+            <input type="hidden" name="show_filters" value="1">
             <div class="grid">
                 <div>
                     <label for="f_nombre">Nombre</label>
@@ -678,7 +735,7 @@ if ($selectedId > 0 && $error === '') {
                     </select>
                 </div>
                 <div>
-                    <label for="f_categoria_id">Categoria</label>
+                    <label for="f_categoria_id">Categoría</label>
                     <select id="f_categoria_id" name="f_categoria_id">
                         <option value="0">Todas</option>
                         <?php foreach ($catalogs['categorias'] as $row): ?>
@@ -711,9 +768,11 @@ if ($selectedId > 0 && $error === '') {
             <div class="actions" style="margin-top: 0.9rem;">
                 <button class="btn btn-primary" type="submit">Buscar</button>
                 <a class="btn btn-muted" href="/compras.php">Limpiar</a>
+                <a class="btn btn-muted" href="/compras.php">Cancelar</a>
             </div>
         </form>
     </div>
+    <?php endif; ?>
 
     <div class="panel">
         <h2>Lista de repuestos</h2>
@@ -725,21 +784,20 @@ if ($selectedId > 0 && $error === '') {
                 <th>OEM</th>
                 <th>Nombre</th>
                 <th>Marca</th>
-                <th>Vehiculo</th>
+                <th>Vehículo</th>
                 <th>Motor</th>
-                <th>Categoria</th>
+                <th>Categoría</th>
                 <th>Unidad</th>
                 <th>Proveedor</th>
                 <th>Precio</th>
                 <th>Stock</th>
-                <th>Estado</th>
                 <th>Acciones</th>
             </tr>
             </thead>
             <tbody>
             <?php if (count($repuestos) === 0): ?>
                 <tr>
-                    <td colspan="14">No hay repuestos cargados.</td>
+                    <td colspan="13">No hay repuestos cargados.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($repuestos as $row): ?>
@@ -756,11 +814,6 @@ if ($selectedId > 0 && $error === '') {
                         <td><?= htmlspecialchars((string) ($row['proveedor'] ?? '')) ?></td>
                         <td><?= number_format((float) ($row['precio_costo'] ?? 0), 2, ',', '.') ?></td>
                         <td><?= (int) ($row['stock_actual'] ?? 0) ?></td>
-                        <td>
-                            <span class="tag <?= (int) $row['activo'] === 1 ? 'ok' : 'off' ?>">
-                                <?= (int) $row['activo'] === 1 ? 'Activo' : 'Inactivo' ?>
-                            </span>
-                        </td>
                         <td>
                             <div class="table-actions">
                                 <a class="btn btn-muted btn-icon" href="/compras.php?edit=<?= (int) $row['id_repuesto'] ?>" title="Editar" aria-label="Editar">
