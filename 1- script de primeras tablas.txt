@@ -1,0 +1,211 @@
+
+
+
+
+-- 1. Marcas de Repuestos
+CREATE TABLE Marcas (
+    id_marca INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_marca VARCHAR(100) NOT NULL,
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 2. Marcas de Vehículos
+CREATE TABLE Vehiculos_Marcas (
+    id_vehiculo_marca INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_marca_v VARCHAR(100) NOT NULL,
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 3. Modelos de Vehículos
+CREATE TABLE Vehiculos_Modelos (
+    id_modelo INT AUTO_INCREMENT PRIMARY KEY,
+    id_vehiculo_marca INT NOT NULL,
+    nombre_modelo VARCHAR(100) NOT NULL,
+    activo TINYINT(1) DEFAULT 1,
+    CONSTRAINT fk_modelo_marca_v FOREIGN KEY (id_vehiculo_marca) 
+        REFERENCES Vehiculos_Marcas(id_vehiculo_marca)
+) ENGINE=InnoDB;
+
+-- 4. Motorizaciones
+CREATE TABLE Motorizaciones (
+    id_motorizacion INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_motor VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(255),
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 5. Categorías
+CREATE TABLE Categorias (
+    id_categoria INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_categoria VARCHAR(100) NOT NULL,
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 6. Ubicaciones
+CREATE TABLE Ubicaciones (
+    id_ubicacion INT AUTO_INCREMENT PRIMARY KEY,
+    estanteria VARCHAR(50),
+    pasillo VARCHAR(50),
+    cajon VARCHAR(50),
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 7. Proveedores
+CREATE TABLE Proveedores (
+    id_proveedor INT AUTO_INCREMENT PRIMARY KEY,
+    razon_social VARCHAR(150) NOT NULL,
+    cuit VARCHAR(20) UNIQUE,
+    activo TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB;
+
+-- 8. Repuestos
+CREATE TABLE Repuestos (
+    id_repuesto INT AUTO_INCREMENT PRIMARY KEY,
+    sku VARCHAR(50) UNIQUE NOT NULL,
+    cod_oem VARCHAR(100),
+    nombre VARCHAR(150) NOT NULL,
+    id_marca INT,
+    id_categoria INT,
+    id_ubicacion INT,
+    id_proveedor INT,
+    stock_actual INT DEFAULT 0,
+    stock_minimo INT DEFAULT 5,
+    precio_costo DECIMAL(10, 2),
+    fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    activo TINYINT(1) DEFAULT 1,
+    CONSTRAINT fk_repuesto_marca FOREIGN KEY (id_marca) REFERENCES Marcas(id_marca),
+    CONSTRAINT fk_repuesto_categoria FOREIGN KEY (id_categoria) REFERENCES Categorias(id_categoria),
+    CONSTRAINT fk_repuesto_ubicacion FOREIGN KEY (id_ubicacion) REFERENCES Ubicaciones(id_ubicacion),
+    CONSTRAINT fk_repuesto_proveedor FOREIGN KEY (id_proveedor) REFERENCES Proveedores(id_proveedor)
+) ENGINE=InnoDB;
+
+-- 9. Compatibilidad (Tabla final)
+CREATE TABLE Compatibilidad_Vehiculos (
+    id_compatibilidad INT AUTO_INCREMENT PRIMARY KEY,
+    id_repuesto INT NOT NULL,
+    id_modelo INT NOT NULL,
+    id_motorizacion INT,
+    anio_inicio INT,
+    anio_fin INT,
+    activo TINYINT(1) DEFAULT 1,
+    CONSTRAINT fk_comp_repuesto FOREIGN KEY (id_repuesto) REFERENCES Repuestos(id_repuesto) ON DELETE CASCADE,
+    CONSTRAINT fk_comp_modelo FOREIGN KEY (id_modelo) REFERENCES Vehiculos_Modelos(id_modelo),
+    CONSTRAINT fk_comp_motor FOREIGN KEY (id_motorizacion) REFERENCES Motorizaciones(id_motorizacion)
+) ENGINE=InnoDB;
+
+
+
+INSERT INTO Marcas (nombre_marca) VALUES 
+('Bosch'),
+('Magneti Marelli'),
+('Brembo'),
+('SKF'),
+('Monroe'),
+('Fric-Rot'),
+('Filtros Fram'),
+('NGK'),
+('Valeo'),
+('Gates'),
+('Luk'),
+('Sachs'),
+('Mahle'),
+('TotalEnergies'),
+('Castrol');
+
+INSERT INTO Vehiculos_Marcas (nombre_marca_v) VALUES 
+('Volkswagen'),
+('Ford'),
+('Fiat'),
+('Renault'),
+('Chevrolet'),
+('Peugeot'),
+('Toyota'),
+('Honda');
+
+
+-- Modelos para Volkswagen (ID 1)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(1, 'Gol'), (1, 'Bora'), (1, 'Vento'), (1, 'Amarok'), (1, 'Suran');
+
+-- Modelos para Ford (ID 2)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(2, 'Fiesta'), (2, 'Focus'), (2, 'EcoSport'), (2, 'Ranger'), (2, 'Ka');
+
+
+
+
+
+
+-- Modelos para Fiat (ID 3)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(3, 'Uno'), (3, 'Palio'), (3, 'Cronos'), (3, 'Toro'), (3, 'Fiorino');
+
+-- Modelos para Renault (ID 4)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(4, 'Clio'), (4, 'Kangoo'), (4, 'Sandero'), (4, 'Duster'), (4, 'Logan');
+
+-- Modelos para Chevrolet (ID 5)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(5, 'Corsa'), (5, 'Onix'), (5, 'Cruze'), (5, 'S10'), (5, 'Prisma');
+
+-- Modelos para Peugeot (ID 6)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(6, '206'), (6, '207'), (6, '208'), (6, '308'), (6, 'Partner');
+
+-- Modelos para Toyota (ID 7)
+INSERT INTO Vehiculos_Modelos (id_vehiculo_marca, nombre_modelo) VALUES 
+(7, 'Hilux'), (7, 'Corolla'), (7, 'Etios'), (7, 'Yaris'), (7, 'SW4');
+
+
+
+
+INSERT INTO Motorizaciones (nombre_motor, descripcion) VALUES 
+('1.0 8v', 'Nafta - Económico común'),
+('1.4 8v', 'Nafta - Línea Fiat Fire / Chevrolet'),
+('1.6 8v', 'Nafta - Motor convencional (Rocam, K4M, etc.)'),
+('1.6 16v', 'Nafta - Motor Sigma / MSI / Etios'),
+('1.8 8v', 'Nafta - Línea Powertrain / Monopunto'),
+('1.8 16v', 'Nafta - Motores modernos / Corolla antiguo'),
+('2.0 8v', 'Nafta - Motor Audi / VW antiguo'),
+('2.0 16v', 'Nafta - Motores de alta gama / Deportivos'),
+('1.9 SD', 'Diesel - Aspirado convencional'),
+('1.9 TDI', 'Diesel - Turbo Inyección Directa (VW)'),
+('2.0 TDI', 'Diesel - Common Rail moderno'),
+('2.3 TD', 'Diesel - Turbo (Línea Ranger / S10)'),
+('2.8 CTDI', 'Diesel - Turbo Common Rail (Línea Hilux / S10)'),
+('1.4 TSI', 'Nafta - Turbo Inyección (Línea VW moderna)'),
+('1.0 Turbo', 'Nafta - Motores Downsizing (3 cilindros)');
+
+
+
+INSERT INTO Categorias (nombre_categoria) VALUES 
+('Motor'),
+('Sistema de Frenos'),
+('Suspensión y Dirección'),
+('Transmisión y Caja'),
+('Electricidad e Iluminación'),
+('Encendido'),
+('Inyección y Combustible'),
+('Refrigeración'),
+('Embrague'),
+('Escapes y Silenciadores'),
+('Carrocería'),
+('Filtros'),
+('Lubricantes y Fluidos'),
+('Correas y Distribución'),
+('Climatización (Aire Acondicionado)');
+
+
+INSERT INTO Ubicaciones (pasillo, estanteria, cajon) VALUES 
+('A', '01', '01'), -- Repuestos pesados o grandes en la entrada
+('A', '01', '02'),
+('B', '05', '10'), -- Repuestos medianos
+('C', '02', '05'), -- Zona de filtros
+('D', '10', '01'); -- Zona de lubricantes o bidones
+
+
+
+
+
+
+
