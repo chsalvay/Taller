@@ -15,6 +15,9 @@ $error   = '';
 $success = '';
 $showForm = isset($_GET['nueva']) || isset($_GET['edit']);
 $editId   = (int) ($_GET['edit'] ?? 0);
+if (isset($_GET['nueva']) && !isset($_GET['edit'])) {
+    $editId = 0;
+}
 
 $filters = [
     'cliente'    => trim((string) ($_GET['f_cliente'] ?? '')),
@@ -45,8 +48,9 @@ try {
     $pdo = Database::connect($projectRoot);
 
     // Asegurar columnas nuevas en ordenes_trabajo
-    $pdo->exec('ALTER TABLE ordenes_trabajo ADD COLUMN IF NOT EXISTS id_cliente INT NULL AFTER id');
-    $pdo->exec('ALTER TABLE ordenes_trabajo ADD COLUMN IF NOT EXISTS fecha_ot DATE NULL AFTER descripcion');
+    $cols = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ordenes_trabajo'")->fetchAll(\PDO::FETCH_COLUMN);
+    if (!in_array('id_cliente', $cols)) $pdo->exec('ALTER TABLE ordenes_trabajo ADD COLUMN id_cliente INT NULL AFTER id');
+    if (!in_array('fecha_ot', $cols)) $pdo->exec('ALTER TABLE ordenes_trabajo ADD COLUMN fecha_ot DATE NULL AFTER descripcion');
 
     // Crear tabla detalle si no existe
     $pdo->exec('
@@ -351,6 +355,11 @@ try {
         $where[] = 'o.fecha_ot <= :f_fecha_hasta';
         $params['f_fecha_hasta'] = $filters['fecha_hasta'];
     }
+    // Excluir siempre las órdenes cerradas (van a "Órdenes terminadas")
+    if ($filters['estado'] === '') {
+        $where[] = "o.estado != 'cerrada'";
+    }
+
     $sql = '
         SELECT o.id, o.cliente, o.vehiculo, o.patente, o.estado, o.fecha_ot,
                COUNT(d.id) AS cant_items
@@ -396,6 +405,7 @@ body{font-family:Segoe UI,Arial,sans-serif;margin:1.5rem;background:#f3f6fb;colo
 /* TABLA */
 table{width:100%;border-collapse:collapse;margin-top:.6rem}
 th,td{border-bottom:1px solid #e2e8f0;padding:.55rem;text-align:left;font-size:.93rem;vertical-align:top}
+.num{text-align:right}
 th{font-weight:700}
 .badge{display:inline-block;padding:.2rem .6rem;border-radius:999px;font-size:.8rem;font-weight:700}
 .badge-abierta{background:#dbeafe;color:#1d4ed8}
@@ -490,7 +500,7 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
         }
     }
   ?>
-  <form method="post" action="<?= htmlspecialchars($formAction) ?>">
+  <form method="post" action="<?= htmlspecialchars($formAction) ?>" autocomplete="off">
   <input type="hidden" name="action" value="<?= $actionValue ?>">
   <?php if ($isEdit): ?>
   <input type="hidden" name="id_orden" value="<?= $formOrden['id'] ?>">
@@ -674,12 +684,12 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
     <table>
       <thead>
         <tr>
-          <th>#</th>
+          <th class="num">#</th>
           <th>Fecha OT</th>
           <th>Cliente</th>
           <th>Vehículo</th>
           <th>Patente</th>
-          <th>Items</th>
+          <th class="num">Items</th>
           <th>Estado</th>
           <th>Acciones</th>
         </tr>
@@ -690,16 +700,19 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
         <?php else: ?>
         <?php foreach ($ordenes as $o): ?>
         <tr>
-          <td><?= $o['id'] ?></td>
+          <td class="num"><?= $o['id'] ?></td>
           <td><?= htmlspecialchars($o['fecha_ot'] ?? '—') ?></td>
           <td><?= htmlspecialchars($o['cliente']) ?></td>
           <td><?= htmlspecialchars($o['vehiculo']) ?></td>
           <td><?= htmlspecialchars($o['patente']) ?></td>
-          <td><?= (int)$o['cant_items'] ?></td>
+          <td class="num"><?= (int)$o['cant_items'] ?></td>
           <td><span class="badge badge-<?= htmlspecialchars($o['estado']) ?>"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $o['estado']))) ?></span></td>
           <td>
             <div class="actions">
               <a href="/ordenes.php?edit=<?= (int)$o['id'] ?>" class="btn btn-muted btn-small">Editar</a>
+              <?php if ($o['estado'] !== 'cerrada'): ?>
+              <a href="/cerrar_orden.php?id=<?= (int)$o['id'] ?>" class="btn btn-primary btn-small">Terminar</a>
+              <?php endif; ?>
             </div>
           </td>
         </tr>
@@ -726,15 +739,18 @@ function rellenarCliente(sel) {
     }
 }
 
+var MULTIMARCA_ID = '8'; // id_vehiculo_marca de la marca "Multimarca"
+
 function filtrarRepuestos(idMarca) {
     document.querySelectorAll('.rep-item').forEach(function(item) {
         const compat = item.dataset.marcasCompat || '';
-        // Sin compat registrada = genérico, siempre visible
+        // Sin compat registrada, sin marca seleccionada, o multimarca = siempre visible
         if (!compat || !idMarca || idMarca === '0') {
             item.style.display = '';
         } else {
             const ids = compat.split(',');
-            item.style.display = ids.includes(idMarca) ? '' : 'none';
+            // Visible si es compatible con el vehículo seleccionado O es multimarca
+            item.style.display = (ids.includes(idMarca) || ids.includes(MULTIMARCA_ID)) ? '' : 'none';
         }
     });
     // Ocultar títulos de categoría si no tienen items visibles

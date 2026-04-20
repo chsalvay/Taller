@@ -159,7 +159,7 @@ try {
             <span class="stock-alert-msg">
                 &#9888;&#65039; Hay <span class="stock-badge"><?= count($lowStockItems) ?></span> repuesto<?= count($lowStockItems) !== 1 ? 's' : '' ?> con stock por debajo del mínimo registrado.
             </span>
-            <a class="btn-stock" href="/compras.php?f_stock_bajo=1&show_filters=1">Ver listado</a>
+            <a class="btn-stock" href="/stock_bajo.php">Ver listado</a>
         </div>
         <?php else: ?>
         <div class="stock-ok">&#10003; Todos los repuestos tienen stock suficiente.</div>
@@ -169,7 +169,7 @@ try {
         <span class="stock-alert-msg">
             &#9888;&#65039; Hay <span class="stock-badge"><?= count($lowStockItems) ?></span> repuesto<?= count($lowStockItems) !== 1 ? 's' : '' ?> con stock por debajo del mínimo registrado.
         </span>
-        <a class="btn-stock" href="/compras.php?f_stock_bajo=1&show_filters=1">Ver listado</a>
+        <a class="btn-stock" href="/stock_bajo.php">Ver listado</a>
     </div>
     <?php endif; ?>
 
@@ -177,7 +177,7 @@ try {
         <nav class="menu-bar" aria-label="Menu principal">
             <div class="menu-item">
                 <button class="menu-trigger" type="button" aria-haspopup="true" aria-expanded="false">
-                    Catalogo
+                    Paramétricas
                     <span class="caret">&#9662;</span>
                 </button>
                 <div class="dropdown" role="menu" aria-label="Submenu catalogo">
@@ -195,6 +195,7 @@ try {
             <a class="module" href="/compras.php">Repuestos</a>
             <a class="module" href="/clientes.php">Clientes</a>
             <a class="module" href="/ordenes.php">Ordenes de Trabajo</a>
+            <a class="module" href="/ordenes_terminadas.php">Ordenes terminadas</a>
         </div>
     <?php else: ?>
         <p>Tu rol no tiene modulos asignados.</p>

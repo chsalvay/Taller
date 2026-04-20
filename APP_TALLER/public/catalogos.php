@@ -740,6 +740,7 @@ $proveedores = $pdo->query(
         .check-label input[type="checkbox"] { width: auto; margin: 0; }
         table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; }
         th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem; text-align: left; font-size: 0.93rem; vertical-align: top; }
+        table thead th:first-child, table tbody td:first-child:not([colspan]) { text-align: right; }
         .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
         .ok { background: #dcfce7; color: #166534; }
         .off { background: #fee2e2; color: #991b1b; }
@@ -769,8 +770,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'marca'): ?>
     <div class="panel" id="marcas-panel">
-        <h2>Marca Repuesto</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Marca Repuesto</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=marca">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="marca_save">
             <input type="hidden" name="id_marca" value="<?= (int) $marcaForm['id_marca'] ?>">
 
@@ -838,8 +842,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'vehiculo_marca'): ?>
     <div class="panel" id="vehiculos-marcas-panel">
-        <h2>Vehículo Marca</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Vehículo Marca</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=vehiculo_marca">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="vehiculo_marca_save">
             <input type="hidden" name="id_vehiculo_marca" value="<?= (int) $vehiculoMarcaForm['id_vehiculo_marca'] ?>">
 
@@ -907,8 +914,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'vehiculo_modelo'): ?>
     <div class="panel" id="vehiculos-modelos-panel">
-        <h2>Vehículo Modelo</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Vehículo Modelo</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=vehiculo_modelo">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="vehiculo_modelo_save">
             <input type="hidden" name="id_modelo" value="<?= (int) $vehiculoModeloForm['id_modelo'] ?>">
 
@@ -989,8 +999,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'motorizacion'): ?>
     <div class="panel" id="motorizaciones-panel">
-        <h2>Motorización</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Motorización</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=motorizacion">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="motorizacion_save">
             <input type="hidden" name="id_motorizacion" value="<?= (int) $motorizacionForm['id_motorizacion'] ?>">
 
@@ -1064,8 +1077,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'categoria'): ?>
     <div class="panel" id="categorias-panel">
-        <h2>Categoría</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Categoría</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=categoria">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="categoria_save">
             <input type="hidden" name="id_categoria" value="<?= (int) $categoriaForm['id_categoria'] ?>">
 
@@ -1133,8 +1149,11 @@ $proveedores = $pdo->query(
 
     <?php if ($seccion === 'proveedor'): ?>
     <div class="panel" id="proveedores-panel">
-        <h2>Proveedor</h2>
-        <form method="post" action="/catalogos.php">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+            <h2 style="margin:0;">Proveedor</h2>
+            <a class="btn btn-primary btn-small" href="/catalogos.php?seccion=proveedor">Nuevo</a>
+        </div>
+        <form method="post" action="/catalogos.php" autocomplete="off">
             <input type="hidden" name="action" value="proveedor_save">
             <input type="hidden" name="id_proveedor" value="<?= (int) $proveedorForm['id_proveedor'] ?>">
 

@@ -60,9 +60,10 @@ try {
             fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         )'
     );
-    $pdo->exec('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS id_vehiculo_marca INT NULL AFTER telefono');
-    $pdo->exec('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS id_modelo INT NULL AFTER id_vehiculo_marca');
-    $pdo->exec('ALTER TABLE clientes ADD COLUMN IF NOT EXISTS patente VARCHAR(20) NULL AFTER id_modelo');
+    $cols = $pdo->query("SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'clientes'")->fetchAll(\PDO::FETCH_COLUMN);
+    if (!in_array('id_vehiculo_marca', $cols)) $pdo->exec('ALTER TABLE clientes ADD COLUMN id_vehiculo_marca INT NULL AFTER telefono');
+    if (!in_array('id_modelo', $cols)) $pdo->exec('ALTER TABLE clientes ADD COLUMN id_modelo INT NULL AFTER id_vehiculo_marca');
+    if (!in_array('patente', $cols)) $pdo->exec('ALTER TABLE clientes ADD COLUMN patente VARCHAR(20) NULL AFTER id_modelo');
 } catch (Throwable $e) {
     http_response_code(500);
     echo 'No se pudo conectar a la base de datos: ' . htmlspecialchars($e->getMessage());
@@ -227,6 +228,16 @@ $newRequested = isset($_GET['new']);
 if ($newRequested) {
     $showForm = true;
     $formMode = 'new';
+    $form = [
+        'id_cliente' => 0,
+        'nombre' => '',
+        'direccion' => '',
+        'telefono' => '',
+        'id_vehiculo_marca' => '',
+        'id_modelo' => '',
+        'patente' => '',
+        'activo' => '1',
+    ];
 }
 
 $editId = (int) ($_GET['edit'] ?? 0);
@@ -358,6 +369,7 @@ try {
         .check-label input[type="checkbox"] { width: auto; margin: 0; }
         table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; }
         th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem; text-align: left; font-size: 0.93rem; vertical-align: top; }
+        table thead th:first-child, table tbody td:first-child:not([colspan]) { text-align: right; }
         .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
         .ok { background: #dcfce7; color: #166534; }
         .off { background: #fee2e2; color: #991b1b; }
@@ -446,7 +458,7 @@ try {
     <?php if ($showForm): ?>
     <div class="panel" id="clientes-form-panel">
         <h2><?= $formMode === 'edit' ? 'Editar cliente' : 'Nuevo cliente' ?></h2>
-        <form method="post" action="/clientes.php">
+        <form method="post" action="/clientes.php" autocomplete="off">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="id_cliente" value="<?= (int) $form['id_cliente'] ?>">
 

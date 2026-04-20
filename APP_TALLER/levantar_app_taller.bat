@@ -3,9 +3,10 @@ setlocal
 
 set "PROJECT_ROOT=%~dp0"
 if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
-set "XAMPP_ROOT=C:\xampp"
-set "MYSQL_START=%XAMPP_ROOT%\mysql_start.bat"
-set "MYSQL_CLI=%XAMPP_ROOT%\mysql\bin\mysql.exe"
+set "MYSQL8_BIN=C:\Program Files\MySQL\MySQL Server 8.4\bin"
+set "MYSQL_DEFAULTS=%PROJECT_ROOT%\storage\mysql8.ini"
+set "MYSQL_CLI=%MYSQL8_BIN%\mysql.exe"
+set "MYSQL_DAEMON=%MYSQL8_BIN%\mysqld.exe"
 
 echo.
 echo [APP_TALLER] Iniciando entorno local...
@@ -17,16 +18,16 @@ if errorlevel 1 (
 	exit /b 1
 )
 
-if not exist "%MYSQL_START%" (
-	echo [ERROR] No se encontro mysql_start.bat en %XAMPP_ROOT%.
-	echo         Verifica la instalacion de XAMPP.
+if not exist "%MYSQL_DAEMON%" (
+	echo [ERROR] No se encontro mysqld.exe en %MYSQL8_BIN%.
+	echo         Verifica la instalacion de MySQL 8.4.
 	exit /b 1
 )
 
 netstat -ano | findstr ":3306" | findstr "LISTENING" >nul
 if errorlevel 1 (
-	echo [INFO] Iniciando MySQL de XAMPP...
-	start "APP_TALLER_MYSQL" cmd /c "\"%MYSQL_START%\""
+	echo [INFO] Iniciando MySQL 8.4...
+	start "APP_TALLER_MYSQL" /B "%MYSQL_DAEMON%" "--defaults-file=%MYSQL_DEFAULTS%"
 
 	for /L %%i in (1,1,20) do (
 		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3306); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
@@ -43,7 +44,7 @@ if errorlevel 1 (
 if exist "%MYSQL_CLI%" (
 	if exist "%PROJECT_ROOT%\database\schema.sql" (
 		echo [INFO] Sincronizando esquema de base de datos...
-		"%MYSQL_CLI%" -u root < "%PROJECT_ROOT%\database\schema.sql"
+		"%MYSQL_CLI%" -u root -h 127.0.0.1 -P 3306 -e "source %PROJECT_ROOT:\=/%/database/schema.sql"
 		if errorlevel 1 (
 			echo [WARN] No se pudo importar schema.sql automaticamente.
 			echo        Verifica credenciales de root en MySQL.
@@ -52,7 +53,7 @@ if exist "%MYSQL_CLI%" (
 		)
 	)
 ) else (
-	echo [WARN] No se encontro mysql.exe en XAMPP. Se omite importacion de esquema.
+	echo [WARN] No se encontro mysql.exe. Se omite importacion de esquema.
 )
 
 netstat -ano | findstr ":8000" | findstr "LISTENING" >nul

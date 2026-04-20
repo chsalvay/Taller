@@ -476,6 +476,23 @@ $deleteId = (int) ($_GET['delete'] ?? 0);
 if ($newRequested) {
     $showForm = true;
     $formMode = 'new';
+    $form = [
+        'id_repuesto' => 0,
+        'sku' => '',
+        'cod_oem' => '',
+        'nombre' => '',
+        'marca_id' => '',
+        'vehiculo_marca_id' => '',
+        'vehiculo_modelo_id' => '',
+        'motorizacion_id' => '',
+        'categoria_id' => '',
+        'unidad_id' => '',
+        'proveedor_id' => '',
+        'precio_costo' => '0',
+        'stock_actual' => '0',
+        'stock_minimo' => '5',
+        'activo' => '1',
+    ];
 }
 
 $selectedId = $editId > 0 ? $editId : $deleteId;
@@ -543,6 +560,7 @@ if ($selectedId > 0 && $error === '') {
         input, select { width: 100%; box-sizing: border-box; border: 1px solid #c6d2e4; border-radius: 8px; padding: 0.55rem; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid #e2e8f0; padding: 0.55rem; text-align: left; font-size: 0.93rem; vertical-align: top; }
+        .num { text-align: right; }
         .tag { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
         .ok { background: #dcfce7; color: #166534; }
         .off { background: #fee2e2; color: #991b1b; }
@@ -585,7 +603,7 @@ if ($selectedId > 0 && $error === '') {
         <h2>
             <?php if ($isDeleteMode): ?>Confirmar baja de repuesto<?php elseif ((int) $form['id_repuesto'] > 0): ?>Editar repuesto<?php else: ?>Nuevo repuesto<?php endif; ?>
         </h2>
-        <form method="post" action="/compras.php">
+        <form method="post" action="/compras.php" autocomplete="off">
             <input type="hidden" name="action" value="<?= $formActionValue ?>">
             <input type="hidden" name="id_repuesto" value="<?= (int) $form['id_repuesto'] ?>">
 
@@ -644,8 +662,8 @@ if ($selectedId > 0 && $error === '') {
                     <select id="vehiculo_modelo_id" name="vehiculo_modelo_id" required <?= $formDisabledAttr ?>>
                         <option value="">Seleccionar...</option>
                         <?php foreach ($catalogs['vehiculos_modelos'] as $row): ?>
-                            <option value="<?= (int) $row['id'] ?>" <?= (string) $form['vehiculo_modelo_id'] === (string) $row['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars((string) $row['marca_nombre'] . ' - ' . (string) $row['nombre']) ?>
+                            <option value="<?= (int) $row['id'] ?>" data-marca="<?= (int) $row['marca_id'] ?>" <?= (string) $form['vehiculo_modelo_id'] === (string) $row['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) $row['nombre']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -699,11 +717,9 @@ if ($selectedId > 0 && $error === '') {
                     </select>
                 </div>
 
-                <div>
-                    <label>
-                        <input type="checkbox" name="activo" value="1" <?= (string) $form['activo'] === '1' ? 'checked' : '' ?> <?= $formDisabledAttr ?>>
-                        Activo
-                    </label>
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-top:1.6rem;">
+                    <input id="activo" type="checkbox" name="activo" value="1" <?= (string) $form['activo'] === '1' ? 'checked' : '' ?> <?= $formDisabledAttr ?> style="width:auto;margin:0;">
+                    <label for="activo" style="margin:0;font-weight:600;">Activo</label>
                 </div>
             </div>
 
@@ -785,7 +801,7 @@ if ($selectedId > 0 && $error === '') {
         <table>
             <thead>
             <tr>
-                <th>ID</th>
+                <th class="num">ID</th>
                 <th>SKU</th>
                 <th>OEM</th>
                 <th>Nombre</th>
@@ -795,8 +811,8 @@ if ($selectedId > 0 && $error === '') {
                 <th>Categoría</th>
                 <th>Unidad</th>
                 <th>Proveedor</th>
-                <th>Precio</th>
-                <th>Stock</th>
+                <th class="num">Precio</th>
+                <th class="num">Stock</th>
                 <th>Acciones</th>
             </tr>
             </thead>
@@ -808,7 +824,7 @@ if ($selectedId > 0 && $error === '') {
             <?php else: ?>
                 <?php foreach ($repuestos as $row): ?>
                     <tr>
-                        <td><?= (int) $row['id_repuesto'] ?></td>
+                        <td class="num"><?= (int) $row['id_repuesto'] ?></td>
                         <td><?= htmlspecialchars((string) $row['sku']) ?></td>
                         <td><?= htmlspecialchars((string) ($row['cod_oem'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) $row['nombre']) ?></td>
@@ -818,8 +834,8 @@ if ($selectedId > 0 && $error === '') {
                         <td><?= htmlspecialchars((string) ($row['categoria'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($row['unidad'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($row['proveedor'] ?? '')) ?></td>
-                        <td><?= number_format((float) ($row['precio_costo'] ?? 0), 2, ',', '.') ?></td>
-                        <td><?= (int) ($row['stock_actual'] ?? 0) ?></td>
+                        <td class="num"><?= number_format((float) ($row['precio_costo'] ?? 0), 2, ',', '.') ?></td>
+                        <td class="num"><?= (int) ($row['stock_actual'] ?? 0) ?></td>
                         <td>
                             <div class="table-actions">
                                 <a class="btn btn-muted btn-icon" href="/compras.php?edit=<?= (int) $row['id_repuesto'] ?>" title="Editar" aria-label="Editar">
@@ -841,5 +857,41 @@ if ($selectedId > 0 && $error === '') {
         </table>
     </div>
 </div>
+<script>
+(function () {
+    var selMarca  = document.getElementById('vehiculo_marca_id');
+    var selModelo = document.getElementById('vehiculo_modelo_id');
+    if (!selMarca || !selModelo) return;
+
+    // Guarda todas las opciones de modelo (excepto el placeholder)
+    var allOptions = Array.prototype.slice.call(selModelo.options).filter(function(o){ return o.value !== ''; });
+
+    function filterModelos() {
+        var marcaId = selMarca.value;
+        var current = selModelo.value;
+
+        // Limpiar excepto placeholder
+        while (selModelo.options.length > 1) selModelo.remove(1);
+
+        allOptions.forEach(function (opt) {
+            if (marcaId === '' || opt.dataset.marca === marcaId) {
+                selModelo.add(opt.cloneNode(true));
+            }
+        });
+
+        // Restaurar selección si sigue siendo válida
+        var stillValid = Array.prototype.some.call(selModelo.options, function(o){ return o.value === current; });
+        selModelo.value = stillValid ? current : '';
+    }
+
+    selMarca.addEventListener('change', function () {
+        selModelo.value = '';
+        filterModelos();
+    });
+
+    // Filtrar al cargar la página si ya hay una marca seleccionada
+    filterModelos();
+}());
+</script>
 </body>
 </html>

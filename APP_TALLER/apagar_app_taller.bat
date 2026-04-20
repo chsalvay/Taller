@@ -1,8 +1,7 @@
 @echo off
 setlocal
 
-set "XAMPP_ROOT=C:\xampp"
-set "MYSQL_STOP=%XAMPP_ROOT%\mysql_stop.bat"
+set "MYSQL8_BIN=C:\Program Files\MySQL\MySQL Server 8.4\bin"
 
 echo.
 echo [APP_TALLER] Cerrando servicios...
@@ -11,16 +10,12 @@ for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000" ^| findstr "LISTENING
 	taskkill /PID %%p /F >nul 2>&1
 )
 
-if exist "%MYSQL_STOP%" (
-	start "APP_TALLER_MYSQL_STOP" cmd /c "\"%MYSQL_STOP%\""
-	echo [INFO] Solicitud de detencion de MySQL enviada.
+if exist "%MYSQL8_BIN%\mysqladmin.exe" (
+	"%MYSQL8_BIN%\mysqladmin.exe" -u root -h 127.0.0.1 -P 3306 shutdown >nul 2>&1
+	echo [INFO] MySQL 8.4 detenido.
 ) else (
-	echo [WARN] No se encontro mysql_stop.bat en %XAMPP_ROOT%.
+	taskkill /IM mysqld.exe /F >nul 2>&1
 )
-
-rem Refuerzo: si MySQL fue iniciado en consola separada, cerrarlo por proceso.
-taskkill /IM mysqld.exe /F >nul 2>&1
-taskkill /IM mariadbd.exe /F >nul 2>&1
 
 echo [OK] Cierre solicitado.
 echo.

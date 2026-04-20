@@ -34,20 +34,6 @@ CREATE TABLE IF NOT EXISTS ordenes_trabajo (
   fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
-ALTER TABLE ordenes_trabajo
-  ADD COLUMN IF NOT EXISTS id_cliente INT NULL AFTER id,
-  ADD COLUMN IF NOT EXISTS fecha_ot DATE NULL AFTER descripcion;
-
-CREATE TABLE IF NOT EXISTS ordenes_trabajo_detalle (
-  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  id_orden INT UNSIGNED NOT NULL,
-  id_repuesto INT NULL,
-  descripcion_libre VARCHAR(255) NULL,
-  cantidad INT UNSIGNED NOT NULL DEFAULT 1,
-  CONSTRAINT fk_otd_orden FOREIGN KEY (id_orden) REFERENCES ordenes_trabajo(id) ON DELETE CASCADE,
-  CONSTRAINT fk_otd_repuesto FOREIGN KEY (id_repuesto) REFERENCES repuestos(id_repuesto) ON DELETE SET NULL
-);
-
 CREATE TABLE IF NOT EXISTS clientes (
   id_cliente INT AUTO_INCREMENT PRIMARY KEY,
   nombre VARCHAR(120) NOT NULL,
@@ -55,15 +41,11 @@ CREATE TABLE IF NOT EXISTS clientes (
   telefono VARCHAR(30) NULL,
   id_vehiculo_marca INT NULL,
   id_modelo INT NULL,
+  patente VARCHAR(20) NULL,
   activo TINYINT(1) DEFAULT 1,
   fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
-
-ALTER TABLE clientes
-  ADD COLUMN IF NOT EXISTS id_vehiculo_marca INT NULL AFTER telefono,
-  ADD COLUMN IF NOT EXISTS id_modelo INT NULL AFTER id_vehiculo_marca,
-  ADD COLUMN IF NOT EXISTS patente VARCHAR(20) NULL AFTER id_modelo;
 
 CREATE TABLE IF NOT EXISTS marcas (
   id_marca INT AUTO_INCREMENT PRIMARY KEY,
@@ -133,8 +115,15 @@ CREATE TABLE IF NOT EXISTS repuestos (
   CONSTRAINT fk_repuestos_proveedor FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor)
 );
 
-ALTER TABLE repuestos
-  ADD COLUMN IF NOT EXISTS id_unidad INT NULL AFTER id_categoria;
+CREATE TABLE IF NOT EXISTS ordenes_trabajo_detalle (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  id_orden INT UNSIGNED NOT NULL,
+  id_repuesto INT NULL,
+  descripcion_libre VARCHAR(255) NULL,
+  cantidad INT UNSIGNED NOT NULL DEFAULT 1,
+  CONSTRAINT fk_otd_orden FOREIGN KEY (id_orden) REFERENCES ordenes_trabajo(id) ON DELETE CASCADE,
+  CONSTRAINT fk_otd_repuesto FOREIGN KEY (id_repuesto) REFERENCES repuestos(id_repuesto) ON DELETE SET NULL
+);
 
 CREATE TABLE IF NOT EXISTS compatibilidad_vehiculos (
   id_compatibilidad INT AUTO_INCREMENT PRIMARY KEY,
@@ -257,8 +246,8 @@ ON DUPLICATE KEY UPDATE
   rol_id = VALUES(rol_id),
   activo = VALUES(activo);
 
-INSERT INTO ordenes_trabajo (cliente, vehiculo, patente, descripcion, estado)
-SELECT 'Cliente Demo', 'Toyota Corolla', 'AA123BB', 'Cambio de aceite y filtros', 'abierta'
+INSERT INTO ordenes_trabajo (cliente, vehiculo, patente, descripcion, estado, fecha_ot)
+SELECT 'Cliente Demo', 'Toyota Corolla', 'AA123BB', 'Cambio de aceite y filtros', 'abierta', CURDATE()
 WHERE NOT EXISTS (
   SELECT 1
   FROM ordenes_trabajo
