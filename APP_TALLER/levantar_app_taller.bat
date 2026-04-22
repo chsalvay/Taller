@@ -57,11 +57,27 @@ if exist "%MYSQL_CLI%" (
 )
 
 netstat -ano | findstr ":8000" | findstr "LISTENING" >nul
+set "PHP_READY=0"
 if errorlevel 1 (
 	echo [INFO] Iniciando servidor web en http://127.0.0.1:8000 ...
-	start "APP_TALLER_PHP" cmd /k "cd /d \"%PROJECT_ROOT%\" && php -S 127.0.0.1:8000 -t public"
+	start "APP_TALLER_PHP" /D "%PROJECT_ROOT%" /B php -S 127.0.0.1:8000 -t public
+
+	for /L %%i in (1,1,10) do (
+		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',8000); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+		if not errorlevel 1 (
+			set "PHP_READY=1"
+			goto php_ready
+		)
+		timeout /t 1 /nobreak >nul
+	)
 ) else (
 	echo [INFO] Ya existe un proceso escuchando en 8000.
+	set "PHP_READY=1"
+)
+
+:php_ready
+if "%PHP_READY%"=="0" (
+	echo [WARN] El servidor PHP no respondio en 8000 dentro del tiempo esperado.
 )
 
 start "" "http://127.0.0.1:8000/index.php"
