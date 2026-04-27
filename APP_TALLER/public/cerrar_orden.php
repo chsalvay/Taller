@@ -111,7 +111,7 @@ $stmtDet = $pdo->prepare(
             d.precio_final,
             d.descripcion_libre,
             r.id_repuesto,
-            r.sku,
+            r.codigo,
             r.nombre AS rep_nombre,
             COALESCE(r.precio_costo, 0) AS precio_costo,
             COALESCE(u.abreviatura, \'\') AS unidad
@@ -268,7 +268,7 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
             <tr>
                 <th>#</th>
                 <th>Descripción</th>
-                <th>SKU</th>
+                <th>Código</th>
                 <th class="num">Cant.</th>
                 <th class="num">Costo unit. ($)</th>
                 <th class="num">Precio venta unit. ($)</th>
@@ -282,14 +282,14 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
                     $descripcion = $esRepuesto
                         ? htmlspecialchars((string) $item['rep_nombre'])
                         : '<span class="desc-libre">* ' . htmlspecialchars((string) $item['descripcion_libre']) . '</span>';
-                    $sku         = $esRepuesto ? htmlspecialchars((string) $item['sku']) : '—';
+                    $codigo      = $esRepuesto ? htmlspecialchars((string) $item['codigo']) : '—';
                     $costo       = $esRepuesto ? (float) $item['precio_costo'] : 0.0;
                     $cantidad    = (int) $item['cantidad'];
                 ?>
                 <tr>
                     <td class="num"><?= $i + 1 ?></td>
                     <td><?= $descripcion ?></td>
-                    <td><?= $sku ?></td>
+                    <td><?= $codigo ?></td>
                     <td class="num"><?= $cantidad ?></td>
                     <td class="num costo-ref">
                         <?= $esRepuesto ? '$ ' . number_format($costo, 2, ',', '.') : '—' ?>

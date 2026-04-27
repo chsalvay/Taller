@@ -12,6 +12,8 @@ use App\Src\Database;
 Auth::startSession();
 Auth::requireLogin();
 
+$config = require $projectRoot . '/config/app.php';
+
 $user    = Auth::user();
 $isAdmin = isset($user['rol']) && $user['rol'] === 'Admin';
 $mostrarStock = isset($_GET['controlar_stock']);
@@ -43,7 +45,7 @@ $lowStockItems = [];
 try {
     $pdo = Database::connect($projectRoot);
     $lowStockItems = $pdo->query('
-        SELECT nombre, sku, stock_actual, stock_minimo
+        SELECT nombre, codigo, stock_actual, stock_minimo
         FROM repuestos
         WHERE activo = 1 AND stock_actual <= stock_minimo
         ORDER BY stock_actual ASC
@@ -125,6 +127,7 @@ try {
         .module { background: #0f172a; color: #fff; text-align: center; padding: 1.4rem 1rem; border-radius: 12px; text-decoration: none; }
         .module:hover { opacity: 0.9; }
         .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; background: #dbeafe; color: #1e3a8a; font-size: 0.85rem; }
+        .badge-version { background: #e2e8f0; color: #334155; }
         /* Alerta stock */
         .stock-alert { margin-top: 1.25rem; background: #fff7ed; border: 1px solid #fb923c; border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
         .stock-alert-msg { font-weight: 700; color: #c2410c; font-size: .97rem; display: flex; align-items: center; gap: .5rem; }
@@ -148,7 +151,11 @@ try {
     <div class="top">
         <div>
             <h1>Panel principal</h1>
-            <p>Usuario: <strong><?= htmlspecialchars((string) ($user['username'] ?? '')) ?></strong> <span class="badge">Rol: <?= htmlspecialchars((string) ($user['rol'] ?? '')) ?></span></p>
+            <p>
+                Usuario: <strong><?= htmlspecialchars((string) ($user['username'] ?? '')) ?></strong>
+                <span class="badge">Rol: <?= htmlspecialchars((string) ($user['rol'] ?? '')) ?></span>
+                <span class="badge badge-version">Version: <?= htmlspecialchars((string) ($config['version'] ?? '1.0.0')) ?></span>
+            </p>
         </div>
         <a class="btn btn-logout" href="/logout.php">Cerrar sesion</a>
     </div>
@@ -193,8 +200,9 @@ try {
 
         <div class="grid">
             <a class="module" href="/compras.php">Repuestos</a>
-            <a class="module" href="/clientes.php">Clientes</a>
             <a class="module" href="/ordenes.php">Ordenes de Trabajo</a>
+            <a class="module" href="/presupuestos.php">Presupuestos</a>
+            <a class="module" href="/clientes.php">Clientes</a>
             <a class="module" href="/ordenes_terminadas.php">Ordenes terminadas</a>
         </div>
     <?php else: ?>

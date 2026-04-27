@@ -42,8 +42,7 @@ $catalogs = [
 
 $form = [
     'id_repuesto' => 0,
-    'sku' => '',
-    'cod_oem' => '',
+    'codigo' => '',
     'nombre' => '',
     'marca_id' => '',
     'vehiculo_marca_id' => '',
@@ -53,6 +52,7 @@ $form = [
     'unidad_id' => '',
     'proveedor_id' => '',
     'precio_costo' => '0',
+    'precio_venta' => '0',
     'stock_actual' => '0',
     'stock_minimo' => '5',
     'activo' => '1',
@@ -85,8 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $showForm = true;
         $formMode = 'edit';
         $idRepuesto = (int) ($_POST['id_repuesto'] ?? 0);
-        $sku = trim((string) ($_POST['sku'] ?? ''));
-        $codOem = trim((string) ($_POST['cod_oem'] ?? ''));
+        $codigo = trim((string) ($_POST['codigo'] ?? ''));
         $nombre = trim((string) ($_POST['nombre'] ?? ''));
         $marcaId = (int) ($_POST['marca_id'] ?? 0);
         $vehiculoMarcaId = (int) ($_POST['vehiculo_marca_id'] ?? 0);
@@ -96,14 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $unidadId = (int) ($_POST['unidad_id'] ?? 0);
         $proveedorId = (int) ($_POST['proveedor_id'] ?? 0);
         $precioCosto = (float) ($_POST['precio_costo'] ?? 0);
+        $precioVenta = (float) ($_POST['precio_venta'] ?? 0);
         $stockActual = (int) ($_POST['stock_actual'] ?? 0);
         $stockMinimo = (int) ($_POST['stock_minimo'] ?? 0);
         $activo = isset($_POST['activo']) ? 1 : 0;
 
         $form = [
             'id_repuesto' => $idRepuesto,
-            'sku' => $sku,
-            'cod_oem' => $codOem,
+            'codigo' => $codigo,
             'nombre' => $nombre,
             'marca_id' => (string) $marcaId,
             'vehiculo_marca_id' => (string) $vehiculoMarcaId,
@@ -113,13 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'unidad_id' => (string) $unidadId,
             'proveedor_id' => (string) $proveedorId,
             'precio_costo' => (string) $precioCosto,
+            'precio_venta' => (string) $precioVenta,
             'stock_actual' => (string) $stockActual,
             'stock_minimo' => (string) $stockMinimo,
             'activo' => (string) $activo,
         ];
 
         if (
-            $sku === '' ||
+            $codigo === '' ||
             $nombre === '' ||
             $marcaId <= 0 ||
             $vehiculoMarcaId <= 0 ||
@@ -132,38 +132,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Completa todos los campos obligatorios.';
         } else {
             try {
-                $dupSku = $pdo->prepare(
+                $dupCodigo = $pdo->prepare(
                     'SELECT 1
                      FROM repuestos
-                     WHERE LOWER(sku) = LOWER(:sku)
+                     WHERE LOWER(codigo) = LOWER(:codigo)
                        AND id_repuesto <> :id_repuesto
                      LIMIT 1'
                 );
-                $dupSku->execute([
-                    'sku' => $sku,
+                $dupCodigo->execute([
+                    'codigo' => $codigo,
                     'id_repuesto' => $idRepuesto,
                 ]);
 
-                if ($dupSku->fetchColumn() !== false) {
-                    throw new RuntimeException('Ya existe un repuesto con ese SKU.');
-                }
-
-                if ($codOem !== '') {
-                    $dupOem = $pdo->prepare(
-                        'SELECT 1
-                         FROM repuestos
-                         WHERE LOWER(cod_oem) = LOWER(:cod_oem)
-                           AND id_repuesto <> :id_repuesto
-                         LIMIT 1'
-                    );
-                    $dupOem->execute([
-                        'cod_oem' => $codOem,
-                        'id_repuesto' => $idRepuesto,
-                    ]);
-
-                    if ($dupOem->fetchColumn() !== false) {
-                        throw new RuntimeException('Ya existe un repuesto con ese Código OEM.');
-                    }
+                if ($dupCodigo->fetchColumn() !== false) {
+                    throw new RuntimeException('Ya existe un repuesto con ese Código.');
                 }
 
                 $pdo->beginTransaction();
@@ -171,14 +153,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($idRepuesto > 0) {
                     $stmt = $pdo->prepare(
                         'UPDATE repuestos
-                         SET sku = :sku,
-                             cod_oem = :cod_oem,
+                         SET codigo = :codigo,
                              nombre = :nombre,
                              id_marca = :id_marca,
                              id_categoria = :id_categoria,
                              id_unidad = :id_unidad,
                              id_proveedor = :id_proveedor,
                              precio_costo = :precio_costo,
+                             precio_venta = :precio_venta,
                              stock_actual = :stock_actual,
                              stock_minimo = :stock_minimo,
                              activo = :activo
@@ -186,14 +168,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
 
                     $stmt->execute([
-                        'sku' => $sku,
-                        'cod_oem' => $codOem === '' ? null : $codOem,
+                        'codigo' => $codigo,
                         'nombre' => $nombre,
                         'id_marca' => $marcaId,
                         'id_categoria' => $categoriaId,
                         'id_unidad' => $unidadId,
                         'id_proveedor' => $proveedorId,
                         'precio_costo' => $precioCosto,
+                        'precio_venta' => $precioVenta,
                         'stock_actual' => $stockActual,
                         'stock_minimo' => $stockMinimo,
                         'activo' => $activo,
@@ -242,8 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $formMode = 'new';
                     $form = [
                         'id_repuesto' => 0,
-                        'sku' => '',
-                        'cod_oem' => '',
+                        'codigo' => '',
                         'nombre' => '',
                         'marca_id' => '',
                         'vehiculo_marca_id' => '',
@@ -253,6 +234,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'unidad_id' => '',
                         'proveedor_id' => '',
                         'precio_costo' => '0',
+                        'precio_venta' => '0',
                         'stock_actual' => '0',
                         'stock_minimo' => '5',
                         'activo' => '1',
@@ -260,26 +242,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $stmt = $pdo->prepare(
                         'INSERT INTO repuestos (
-                            sku,
-                            cod_oem,
+                            codigo,
                             nombre,
                             id_marca,
                             id_categoria,
                             id_unidad,
                             id_proveedor,
                             precio_costo,
+                            precio_venta,
                             stock_actual,
                             stock_minimo,
                             activo
                          ) VALUES (
-                            :sku,
-                            :cod_oem,
+                                     :codigo,
                             :nombre,
                             :id_marca,
                             :id_categoria,
                             :id_unidad,
                             :id_proveedor,
                             :precio_costo,
+                            :precio_venta,
                             :stock_actual,
                             :stock_minimo,
                             :activo
@@ -287,14 +269,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
 
                     $stmt->execute([
-                        'sku' => $sku,
-                        'cod_oem' => $codOem === '' ? null : $codOem,
+                        'codigo' => $codigo,
                         'nombre' => $nombre,
                         'id_marca' => $marcaId,
                         'id_categoria' => $categoriaId,
                         'id_unidad' => $unidadId,
                         'id_proveedor' => $proveedorId,
                         'precio_costo' => $precioCosto,
+                        'precio_venta' => $precioVenta,
                         'stock_actual' => $stockActual,
                         'stock_minimo' => $stockMinimo,
                         'activo' => $activo,
@@ -351,8 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $formMode = 'new';
                 $form = [
                     'id_repuesto' => 0,
-                    'sku' => '',
-                    'cod_oem' => '',
+                    'codigo' => '',
                     'nombre' => '',
                     'marca_id' => '',
                     'vehiculo_marca_id' => '',
@@ -362,6 +343,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'unidad_id' => '',
                     'proveedor_id' => '',
                     'precio_costo' => '0',
+                    'precio_venta' => '0',
                     'stock_actual' => '0',
                     'stock_minimo' => '5',
                     'activo' => '1',
@@ -431,10 +413,10 @@ try {
 
     $sqlRepuestos =
         'SELECT r.id_repuesto,
-                r.sku,
-                r.cod_oem,
+                r.codigo,
                 r.nombre,
                 r.precio_costo,
+                r.precio_venta,
                 r.stock_actual,
                 r.stock_minimo,
                 r.activo,
@@ -478,8 +460,7 @@ if ($newRequested) {
     $formMode = 'new';
     $form = [
         'id_repuesto' => 0,
-        'sku' => '',
-        'cod_oem' => '',
+        'codigo' => '',
         'nombre' => '',
         'marca_id' => '',
         'vehiculo_marca_id' => '',
@@ -489,6 +470,7 @@ if ($newRequested) {
         'unidad_id' => '',
         'proveedor_id' => '',
         'precio_costo' => '0',
+        'precio_venta' => '0',
         'stock_actual' => '0',
         'stock_minimo' => '5',
         'activo' => '1',
@@ -516,8 +498,7 @@ if ($selectedId > 0 && $error === '') {
             $formMode = $deleteId > 0 ? 'delete' : 'edit';
             $form = [
                 'id_repuesto' => (int) $selected['id_repuesto'],
-                'sku' => (string) $selected['sku'],
-                'cod_oem' => (string) ($selected['cod_oem'] ?? ''),
+                'codigo' => (string) $selected['codigo'],
                 'nombre' => (string) $selected['nombre'],
                 'marca_id' => (string) ($selected['id_marca'] ?? ''),
                 'vehiculo_marca_id' => (string) ($selected['id_vehiculo_marca'] ?? ''),
@@ -527,6 +508,7 @@ if ($selectedId > 0 && $error === '') {
                 'unidad_id' => (string) ($selected['id_unidad'] ?? ''),
                 'proveedor_id' => (string) ($selected['id_proveedor'] ?? ''),
                 'precio_costo' => (string) ($selected['precio_costo'] ?? 0),
+                'precio_venta' => (string) ($selected['precio_venta'] ?? 0),
                 'stock_actual' => (string) ($selected['stock_actual'] ?? 0),
                 'stock_minimo' => (string) ($selected['stock_minimo'] ?? 5),
                 'activo' => (string) $selected['activo'],
@@ -586,6 +568,7 @@ if ($selectedId > 0 && $error === '') {
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>
             <a class="btn btn-muted" href="/compras.php?show_filters=1">Buscar</a>
+            <a class="btn btn-muted" href="/actualizar_repuestos.php">Actualizar lista</a>
             <a class="btn btn-primary" href="/compras.php?new=1">Nuevo</a>
         </div>
     </div>
@@ -609,12 +592,8 @@ if ($selectedId > 0 && $error === '') {
 
             <div class="grid">
                 <div>
-                    <label for="sku">SKU</label>
-                    <input id="sku" name="sku" maxlength="50" required value="<?= htmlspecialchars((string) $form['sku']) ?>" <?= $formDisabledAttr ?>>
-                </div>
-                <div>
-                    <label for="cod_oem">Código OEM</label>
-                    <input id="cod_oem" name="cod_oem" maxlength="100" value="<?= htmlspecialchars((string) $form['cod_oem']) ?>" <?= $formDisabledAttr ?>>
+                    <label for="codigo">Código</label>
+                    <input id="codigo" name="codigo" maxlength="50" required value="<?= htmlspecialchars((string) $form['codigo']) ?>" <?= $formDisabledAttr ?>>
                 </div>
                 <div>
                     <label for="nombre">Nombre</label>
@@ -623,6 +602,10 @@ if ($selectedId > 0 && $error === '') {
                 <div>
                     <label for="precio_costo">Precio costo</label>
                     <input id="precio_costo" name="precio_costo" type="number" step="0.01" min="0" required value="<?= htmlspecialchars((string) $form['precio_costo']) ?>" <?= $formDisabledAttr ?>>
+                </div>
+                <div>
+                    <label for="precio_venta">Precio venta</label>
+                    <input id="precio_venta" name="precio_venta" type="number" step="0.01" min="0" required value="<?= htmlspecialchars((string) $form['precio_venta']) ?>" <?= $formDisabledAttr ?>>
                 </div>
                 <div>
                     <label for="stock_actual">Stock actual</label>
@@ -802,8 +785,7 @@ if ($selectedId > 0 && $error === '') {
             <thead>
             <tr>
                 <th class="num">ID</th>
-                <th>SKU</th>
-                <th>OEM</th>
+                <th>Código</th>
                 <th>Nombre</th>
                 <th>Marca</th>
                 <th>Vehículo</th>
@@ -811,7 +793,8 @@ if ($selectedId > 0 && $error === '') {
                 <th>Categoría</th>
                 <th>Unidad</th>
                 <th>Proveedor</th>
-                <th class="num">Precio</th>
+                <th class="num">Precio costo</th>
+                <th class="num">Precio venta</th>
                 <th class="num">Stock</th>
                 <th>Acciones</th>
             </tr>
@@ -825,8 +808,7 @@ if ($selectedId > 0 && $error === '') {
                 <?php foreach ($repuestos as $row): ?>
                     <tr>
                         <td class="num"><?= (int) $row['id_repuesto'] ?></td>
-                        <td><?= htmlspecialchars((string) $row['sku']) ?></td>
-                        <td><?= htmlspecialchars((string) ($row['cod_oem'] ?? '')) ?></td>
+                        <td><?= htmlspecialchars((string) $row['codigo']) ?></td>
                         <td><?= htmlspecialchars((string) $row['nombre']) ?></td>
                         <td><?= htmlspecialchars((string) ($row['marca'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) (($row['vehiculo_marca'] ?? '-') . ' - ' . ($row['vehiculo_modelo'] ?? '-'))) ?></td>
@@ -835,6 +817,7 @@ if ($selectedId > 0 && $error === '') {
                         <td><?= htmlspecialchars((string) ($row['unidad'] ?? '')) ?></td>
                         <td><?= htmlspecialchars((string) ($row['proveedor'] ?? '')) ?></td>
                         <td class="num"><?= number_format((float) ($row['precio_costo'] ?? 0), 2, ',', '.') ?></td>
+                        <td class="num"><?= number_format((float) ($row['precio_venta'] ?? 0), 2, ',', '.') ?></td>
                         <td class="num"><?= (int) ($row['stock_actual'] ?? 0) ?></td>
                         <td>
                             <div class="table-actions">

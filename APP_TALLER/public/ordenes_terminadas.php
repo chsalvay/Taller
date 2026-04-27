@@ -42,7 +42,7 @@ if ($verId > 0) {
                     d.cantidad,
                     d.precio_final,
                     d.descripcion_libre,
-                    r.sku,
+                    r.codigo,
                     r.nombre AS rep_nombre,
                     COALESCE(r.precio_costo, 0) AS precio_costo
              FROM ordenes_trabajo_detalle d
@@ -84,7 +84,7 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
         .btn { display: inline-block; text-decoration: none; border: 0; border-radius: 10px; padding: 0.65rem 1rem; cursor: pointer; font-weight: 600; }
         .btn-primary { background: #0f172a; color: #fff; }
         .btn-muted { background: #e2e8f0; color: #0f172a; }
-        .btn-print { background: #0369a1; color: #fff; }
+        .btn-print { background: #0f172a; color: #fff; }
         .btn-small { padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.86rem; }
         .panel { background: #fff; border: 1px solid #d8e1ef; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
         table { width: 100%; border-collapse: collapse; }
@@ -124,7 +124,6 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
         </div>
         <div class="actions no-print">
             <a class="btn btn-muted" href="/ordenes_terminadas.php">Volver al listado</a>
-            <button class="btn btn-print" onclick="window.print()">Imprimir</button>
         </div>
     </div>
 
@@ -154,12 +153,6 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
                 <label>Monto total</label>
                 <span>$ <?= number_format((float)($orden['monto_total'] ?? 0), 2, ',', '.') ?></span>
             </div>
-            <?php if (!empty($orden['descripcion'])): ?>
-            <div class="info-item" style="grid-column:1/-1;">
-                <label>Descripción</label>
-                <span><?= htmlspecialchars((string) $orden['descripcion']) ?></span>
-            </div>
-            <?php endif; ?>
         </div>
     </div>
 
@@ -172,7 +165,6 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
             <tr>
                 <th>#</th>
                 <th>Descripción</th>
-                <th>SKU</th>
                 <th class="num">Cant.</th>
                 <th class="num">Costo unit. ($)</th>
                 <th class="num">Precio venta unit. ($)</th>
@@ -183,11 +175,10 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
             <?php
             $totalCalc = 0.0;
             foreach ($items as $i => $item):
-                $esRep    = !empty($item['sku']);
+                $esRep    = !empty($item['codigo']);
                 $desc     = $esRep
                     ? htmlspecialchars((string) $item['rep_nombre'])
                     : '<span class="desc-libre">* ' . htmlspecialchars((string) $item['descripcion_libre']) . '</span>';
-                $sku      = $esRep ? htmlspecialchars((string) $item['sku']) : '—';
                 $costo    = (float) $item['precio_costo'];
                 $cantidad = (int)   $item['cantidad'];
                 $pFinal   = $item['precio_final'] !== null ? (float) $item['precio_final'] : null;
@@ -197,7 +188,6 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
                 <tr>
                     <td class="num"><?= $i + 1 ?></td>
                     <td><?= $desc ?></td>
-                    <td><?= $sku ?></td>
                     <td class="num"><?= $cantidad ?></td>
                     <td class="num costo-ref"><?= $esRep ? '$ ' . number_format($costo, 2, ',', '.') : '—' ?></td>
                     <td class="num"><?= $pFinal !== null ? '$ ' . number_format($pFinal, 2, ',', '.') : '—' ?></td>
@@ -207,12 +197,16 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
             </tbody>
             <tfoot>
             <tr>
-                <td colspan="6" style="text-align:right;padding-right:1rem;">TOTAL</td>
+                <td colspan="5" style="text-align:right;padding-right:1rem;">TOTAL</td>
                 <td class="num">$ <?= number_format($totalCalc, 2, ',', '.') ?></td>
             </tr>
             </tfoot>
         </table>
         <?php endif; ?>
+    </div>
+
+    <div class="actions no-print" style="justify-content:flex-end; margin-top:0.25rem; margin-bottom:1rem;">
+        <button class="btn btn-print" onclick="window.print()">Imprimir</button>
     </div>
 
 <?php else: ?>

@@ -96,8 +96,7 @@ CREATE TABLE IF NOT EXISTS unidades (
 
 CREATE TABLE IF NOT EXISTS repuestos (
   id_repuesto INT AUTO_INCREMENT PRIMARY KEY,
-  sku VARCHAR(50) NOT NULL UNIQUE,
-  cod_oem VARCHAR(100) NULL,
+  codigo VARCHAR(50) NOT NULL UNIQUE,
   nombre VARCHAR(150) NOT NULL,
   id_marca INT NULL,
   id_categoria INT NULL,
@@ -107,12 +106,38 @@ CREATE TABLE IF NOT EXISTS repuestos (
   stock_actual INT DEFAULT 0,
   stock_minimo INT DEFAULT 5,
   precio_costo DECIMAL(10,2) NULL,
+  precio_venta DECIMAL(10,2) NULL,
   fecha_ingreso TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   activo TINYINT(1) DEFAULT 1,
   CONSTRAINT fk_repuestos_marca FOREIGN KEY (id_marca) REFERENCES marcas(id_marca),
   CONSTRAINT fk_repuestos_categoria FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria),
   CONSTRAINT fk_repuestos_unidad FOREIGN KEY (id_unidad) REFERENCES unidades(id_unidad),
   CONSTRAINT fk_repuestos_proveedor FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor)
+);
+
+CREATE TABLE IF NOT EXISTS presupuesto (
+  id_presupuesto INT AUTO_INCREMENT PRIMARY KEY,
+  numero_presupuesto VARCHAR(40) NOT NULL UNIQUE,
+  fecha DATE NOT NULL,
+  cliente VARCHAR(150) NOT NULL,
+  monto_total DECIMAL(12,2) NOT NULL DEFAULT 0,
+  activo TINYINT(1) DEFAULT 1,
+  fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS presupuesto_detalle (
+  id_detalle INT AUTO_INCREMENT PRIMARY KEY,
+  id_presupuesto INT NOT NULL,
+  id_repuesto INT NULL,
+  material VARCHAR(150) NOT NULL,
+  cantidad INT NOT NULL DEFAULT 1,
+  precio_costo DECIMAL(10,2) NOT NULL DEFAULT 0,
+  precio_venta DECIMAL(10,2) NOT NULL DEFAULT 0,
+  CONSTRAINT fk_presupuesto_detalle_presupuesto FOREIGN KEY (id_presupuesto)
+    REFERENCES presupuesto(id_presupuesto) ON DELETE CASCADE,
+  CONSTRAINT fk_presupuesto_detalle_repuesto FOREIGN KEY (id_repuesto)
+    REFERENCES repuestos(id_repuesto) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS ordenes_trabajo_detalle (
@@ -255,8 +280,7 @@ WHERE NOT EXISTS (
 );
 
 INSERT INTO repuestos (
-  sku,
-  cod_oem,
+  codigo,
   nombre,
   id_marca,
   id_categoria,
@@ -265,11 +289,11 @@ INSERT INTO repuestos (
   stock_actual,
   stock_minimo,
   precio_costo,
+  precio_venta,
   activo
 )
 SELECT
   'FIL-001',
-  'OEM-001',
   'Filtro de aceite Corolla',
   m.id_marca,
   c.id_categoria,
@@ -278,6 +302,7 @@ SELECT
   12,
   3,
   18500.00,
+  22000.00,
   1
 FROM marcas m
 INNER JOIN categorias c ON c.nombre_categoria = 'Filtros'
@@ -285,7 +310,7 @@ INNER JOIN unidades u ON u.nombre_unidad = 'Unidad'
 INNER JOIN proveedores p ON p.razon_social = 'Repuestos Centro'
 WHERE m.nombre_marca = 'Bosch'
 AND NOT EXISTS (
-  SELECT 1 FROM repuestos WHERE sku = 'FIL-001'
+  SELECT 1 FROM repuestos WHERE codigo = 'FIL-001'
 );
 
 INSERT INTO compatibilidad_vehiculos (
@@ -307,7 +332,7 @@ FROM repuestos r
 INNER JOIN vehiculos_marcas vm ON vm.nombre_marca_v = 'Toyota'
 INNER JOIN vehiculos_modelos m ON m.id_vehiculo_marca = vm.id_vehiculo_marca AND m.nombre_modelo = 'Corolla'
 INNER JOIN motorizaciones mot ON mot.nombre_motor = '1.6 Nafta'
-WHERE r.sku = 'FIL-001'
+WHERE r.codigo = 'FIL-001'
 AND NOT EXISTS (
   SELECT 1
   FROM compatibilidad_vehiculos cv

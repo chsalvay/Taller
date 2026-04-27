@@ -317,14 +317,14 @@ try {
         ORDER BY c.nombre
     ')->fetchAll(\PDO::FETCH_ASSOC);
     $repuestos = $pdo->query('
-        SELECT r.id_repuesto, r.sku, r.nombre, cat.nombre_categoria, r.stock_actual,
+        SELECT r.id_repuesto, r.codigo, r.nombre, cat.nombre_categoria, r.stock_actual,
                GROUP_CONCAT(DISTINCT vmo.id_vehiculo_marca) AS marcas_compat
         FROM repuestos r
         LEFT JOIN categorias cat ON cat.id_categoria = r.id_categoria
         LEFT JOIN compatibilidad_vehiculos cv ON cv.id_repuesto = r.id_repuesto
         LEFT JOIN vehiculos_modelos vmo ON vmo.id_modelo = cv.id_modelo
         WHERE r.activo = 1
-        GROUP BY r.id_repuesto, r.sku, r.nombre, cat.nombre_categoria, r.stock_actual
+        GROUP BY r.id_repuesto, r.codigo, r.nombre, cat.nombre_categoria, r.stock_actual
         ORDER BY cat.nombre_categoria, r.nombre
     ')->fetchAll(\PDO::FETCH_ASSOC);
 } catch (Throwable) {}
@@ -588,7 +588,7 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
             <label for="rep_<?= $r['id_repuesto'] ?>" class="rep-name" title="<?= htmlspecialchars($r['nombre']) ?>">
               <?= htmlspecialchars($r['nombre']) ?>
             </label>
-            <div class="rep-meta">SKU: <?= htmlspecialchars($r['sku']) ?> &nbsp;|&nbsp; Stock: <?= (int)$r['stock_actual'] ?></div>
+            <div class="rep-meta">Código: <?= htmlspecialchars($r['codigo']) ?> &nbsp;|&nbsp; Stock: <?= (int)$r['stock_actual'] ?></div>
             <div class="cant-wrap">
               <label style="font-size:.78rem;font-weight:600;white-space:nowrap">Cant.:</label>
               <input type="number" name="cant_rep_<?= $r['id_repuesto'] ?>"
@@ -626,6 +626,11 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
 
   <div class="form-actions">
     <a href="/ordenes.php" class="btn btn-muted">Cancelar</a>
+        <?php if ($isEdit): ?>
+            <a href="/ordenes_pdf.php?id=<?= (int) $formOrden['id'] ?>" target="_blank" rel="noopener" class="btn btn-muted">Imprimir</a>
+        <?php else: ?>
+            <button type="button" class="btn btn-muted" disabled title="Guardá la orden para habilitar la impresión">Imprimir</button>
+        <?php endif; ?>
     <button type="submit" class="btn btn-primary" onclick="return validarStock(event)"><?= $isEdit ? 'Guardar cambios' : 'Guardar orden de trabajo' ?></button>
   </div>
   </form>

@@ -55,7 +55,7 @@ $items = [];
 try {
     $items = $pdo->query(
         'SELECT r.id_repuesto,
-                r.sku,
+                r.codigo,
                 r.nombre,
                 r.stock_actual,
                 r.stock_minimo,
@@ -133,7 +133,7 @@ try {
             <thead>
             <tr>
                 <th class="num">ID</th>
-                <th>SKU</th>
+                <th>Código</th>
                 <th>Nombre</th>
                 <th>Marca</th>
                 <th>Categoría</th>
@@ -148,7 +148,7 @@ try {
                 <?php $diff = (int) $row['stock_actual'] - (int) $row['stock_minimo']; ?>
                 <tr>
                     <td class="num"><?= (int) $row['id_repuesto'] ?></td>
-                    <td><?= htmlspecialchars((string) $row['sku']) ?></td>
+                    <td><?= htmlspecialchars((string) $row['codigo']) ?></td>
                     <td><?= htmlspecialchars((string) $row['nombre']) ?></td>
                     <td><?= htmlspecialchars((string) $row['marca']) ?></td>
                     <td><?= htmlspecialchars((string) $row['categoria']) ?></td>

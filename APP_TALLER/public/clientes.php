@@ -30,18 +30,20 @@ $form = [
 
 $filters = [
     'nombre' => trim((string) ($_GET['f_nombre'] ?? '')),
-    'telefono' => trim((string) ($_GET['f_telefono'] ?? '')),
+    'patente' => trim((string) ($_GET['f_patente'] ?? '')),
     'vehiculo_marca_id' => (int) ($_GET['f_vehiculo_marca_id'] ?? 0),
     'modelo_id' => (int) ($_GET['f_modelo_id'] ?? 0),
-    'activo' => (string) ($_GET['f_activo'] ?? ''),
+    'activo' => in_array((string) ($_GET['f_activo'] ?? '1'), ['0', '1'], true)
+        ? (string) ($_GET['f_activo'] ?? '1')
+        : '1',
 ];
 
 $hasActiveFilters =
     $filters['nombre'] !== '' ||
-    $filters['telefono'] !== '' ||
+    $filters['patente'] !== '' ||
     $filters['vehiculo_marca_id'] > 0 ||
     $filters['modelo_id'] > 0 ||
-    ($filters['activo'] === '1' || $filters['activo'] === '0');
+    $filters['activo'] === '0';
 
 $showFilters = isset($_GET['show_filters']) || $hasActiveFilters;
 
@@ -296,9 +298,9 @@ try {
         $params['f_nombre'] = '%' . $filters['nombre'] . '%';
     }
 
-    if ($filters['telefono'] !== '') {
-        $where[] = 'COALESCE(c.telefono, "") LIKE :f_telefono';
-        $params['f_telefono'] = '%' . $filters['telefono'] . '%';
+    if ($filters['patente'] !== '') {
+        $where[] = 'COALESCE(c.patente, "") LIKE :f_patente';
+        $params['f_patente'] = '%' . $filters['patente'] . '%';
     }
 
     if ($filters['vehiculo_marca_id'] > 0) {
@@ -311,9 +313,9 @@ try {
         $params['f_modelo_id'] = $filters['modelo_id'];
     }
 
-    if ($filters['activo'] === '1' || $filters['activo'] === '0') {
+    if ($filters['activo'] === '1') {
         $where[] = 'c.activo = :f_activo';
-        $params['f_activo'] = (int) $filters['activo'];
+        $params['f_activo'] = 1;
     }
 
     $sqlClientes =
@@ -411,8 +413,8 @@ try {
                     <input id="f_nombre" name="f_nombre" value="<?= htmlspecialchars($filters['nombre']) ?>" placeholder="Nombre del cliente">
                 </div>
                 <div>
-                    <label for="f_telefono">Teléfono</label>
-                    <input id="f_telefono" name="f_telefono" value="<?= htmlspecialchars($filters['telefono']) ?>" placeholder="Teléfono del cliente">
+                    <label for="f_patente">Patente</label>
+                    <input id="f_patente" name="f_patente" value="<?= htmlspecialchars($filters['patente']) ?>" placeholder="Patente del vehículo">
                 </div>
                 <div>
                     <label for="f_vehiculo_marca_id">Vehículo marca</label>
@@ -437,12 +439,11 @@ try {
                     </select>
                 </div>
                 <div>
-                    <label for="f_activo">Estado</label>
-                    <select id="f_activo" name="f_activo">
-                        <option value="" <?= $filters['activo'] === '' ? 'selected' : '' ?>>Todos</option>
-                        <option value="1" <?= $filters['activo'] === '1' ? 'selected' : '' ?>>Activos</option>
-                        <option value="0" <?= $filters['activo'] === '0' ? 'selected' : '' ?>>Inactivos</option>
-                    </select>
+                    <label class="check-label" for="f_activo" style="margin-top: 1.6rem;">
+                        <input type="hidden" name="f_activo" value="0">
+                        <input id="f_activo" type="checkbox" name="f_activo" value="1" <?= $filters['activo'] === '1' ? 'checked' : '' ?>>
+                        Solo activos
+                    </label>
                 </div>
             </div>
 
