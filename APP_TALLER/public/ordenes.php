@@ -418,6 +418,8 @@ th{font-weight:700}
 label{display:block;font-size:.9rem;margin-bottom:.25rem;font-weight:600;color:#0f172a}
 input[type=text],input[type=date],select,textarea{width:100%;box-sizing:border-box;border:1px solid #c6d2e4;border-radius:8px;padding:.55rem;font-family:inherit;font-size:.93rem}
 input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outline:2px solid #0f172a;border-color:#0f172a}
+.search-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.selected-client{margin-top:.5rem;font-size:.85rem;color:#475569}
 /* CHECKLIST REPUESTOS */
 .rep-section{margin-bottom:1.2rem}
 .rep-cat-title{font-size:.82rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.4rem;margin-top:.8rem}
@@ -438,7 +440,7 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
 .btn-add-inline:hover{background:#cbd5e1}
 .btn-remove{background:#fee2e2;color:#991b1b;border:none;border-radius:6px;padding:.25rem .5rem;cursor:pointer;font-size:.85rem}
 .form-actions{display:flex;gap:.5rem;margin-top:1rem;justify-content:flex-end}
-@media(max-width:640px){.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:640px){.grid2,.grid3,.search-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -491,43 +493,85 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
     }
     if (empty($descVals)) $descVals = [''];
     // Cliente preseleccionado
-    $preClienteId = $isEdit ? $formOrden['id_cliente'] : (int)($_POST['id_cliente'] ?? 0);
-    $preIdMarca   = 0;
+        $preClienteId = $isEdit ? $formOrden['id_cliente'] : (int)($_POST['id_cliente'] ?? 0);
+        $preIdMarca   = 0;
+        $preClienteNombre = '';
+        $preClientePatente = '';
+        $clientesJs = [];
     foreach ($clientes as $cl) {
+                $vehiculoTxt = trim((string)($cl['marca'] ?? '') . ' ' . (string)($cl['modelo'] ?? ''));
+                $patenteTxt = strtoupper((string)($cl['patente'] ?? ''));
+                $nombreTxt = (string)($cl['nombre'] ?? '');
+                $nombreOption = $nombreTxt;
+                if ($vehiculoTxt !== '') {
+                        $nombreOption .= ' - ' . $vehiculoTxt;
+                }
+                if ($patenteTxt !== '') {
+                        $nombreOption .= ' - ' . $patenteTxt;
+                }
+                $clientesJs[] = [
+                        'id' => (int)$cl['id_cliente'],
+                        'nombre' => $nombreTxt,
+                        'vehiculo' => $vehiculoTxt,
+                        'patente' => $patenteTxt,
+                        'idMarcaVehiculo' => (int)($cl['id_vehiculo_marca'] ?? 0),
+                        'nombreOption' => $nombreOption,
+                ];
         if ((int)$cl['id_cliente'] === $preClienteId) {
             $preIdMarca = (int)($cl['id_vehiculo_marca'] ?? 0);
+                        $preClienteNombre = $nombreOption;
+                        $preClientePatente = $patenteTxt;
             break;
         }
     }
   ?>
   <form method="post" action="<?= htmlspecialchars($formAction) ?>" autocomplete="off">
   <input type="hidden" name="action" value="<?= $actionValue ?>">
+    <input type="hidden" name="id_cliente" id="id_cliente" value="<?= (int)$preClienteId ?>">
   <?php if ($isEdit): ?>
   <input type="hidden" name="id_orden" value="<?= $formOrden['id'] ?>">
   <?php endif; ?>
 
   <div class="panel">
     <h2><?= $isEdit ? 'Editar orden de trabajo #' . $formOrden['id'] : 'Orden de trabajo' ?></h2>
-    <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
-      <div class="form-group" style="flex:1;min-width:200px">
-        <label for="sel_cliente">Cliente *</label>
-        <select id="sel_cliente" name="id_cliente" required onchange="rellenarCliente(this)">
-          <option value="">— Seleccionar cliente —</option>
-          <?php foreach ($clientes as $cl):
-            $auto = trim($cl['marca'] . ' ' . $cl['modelo']);
-            $sel  = ($preClienteId === (int)$cl['id_cliente']) ? 'selected' : '';
-            $patenteCl = strtoupper((string)($cl['patente'] ?? ''));
-            $label = htmlspecialchars($cl['nombre']);
-            if ($auto)      $label .= ' — ' . htmlspecialchars($auto);
-            if ($patenteCl) $label .= ' — ' . htmlspecialchars($patenteCl);
-          ?>
-          <option value="<?= $cl['id_cliente'] ?>" <?= $sel ?>
-            data-patente="<?= htmlspecialchars($patenteCl) ?>"
-            data-id-marca-vehiculo="<?= (int)($cl['id_vehiculo_marca'] ?? 0) ?>">
-            <?= $label ?>
-          </option>
-          <?php endforeach; ?>
-        </select>
+        <div style="display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:360px">
+                <label>Cliente *</label>
+                <div class="search-grid">
+                    <div class="form-group" style="margin:0">
+                        <label for="buscar_cliente_nombre">Buscar por nombre</label>
+                        <input id="buscar_cliente_nombre" type="text" list="clientes_por_nombre" autocomplete="off"
+                                     placeholder="Escribí nombre del cliente" value="<?= htmlspecialchars($preClienteNombre) ?>"
+                                     oninput="buscarClientePorNombre(this.value)">
+                        <datalist id="clientes_por_nombre">
+                            <?php foreach ($clientesJs as $c): ?>
+                            <option value="<?= htmlspecialchars((string)$c['nombreOption']) ?>"></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label for="buscar_cliente_patente">Buscar por patente</label>
+                        <input id="buscar_cliente_patente" type="text" list="clientes_por_patente" autocomplete="off"
+                                     placeholder="Ej: AB123CD" value="<?= htmlspecialchars($preClientePatente) ?>"
+                                     oninput="buscarClientePorPatente(this.value)"
+                                     onchange="autocompletarClientePorPatente(this.value)"
+                                     onblur="autocompletarClientePorPatente(this.value)">
+                        <datalist id="clientes_por_patente">
+                            <?php foreach ($clientesJs as $c):
+                                if ($c['patente'] === '') {
+                                        continue;
+                                }
+                                $patLabel = $c['nombre'];
+                                if ($c['vehiculo'] !== '') {
+                                        $patLabel .= ' - ' . $c['vehiculo'];
+                                }
+                            ?>
+                            <option value="<?= htmlspecialchars((string)$c['patente']) ?>" label="<?= htmlspecialchars($patLabel) ?>"></option>
+                            <?php endforeach; ?>
+                        </datalist>
+                    </div>
+                </div>
+                <div id="cliente_seleccionado" class="selected-client"></div>
       </div>
       <div class="form-group" style="flex:0 0 auto">
         <label for="fecha_ot">Fecha de la OT *</label>
@@ -730,19 +774,112 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
 </div>
 
 <script>
-function rellenarCliente(sel) {
-    const opt = sel.options[sel.selectedIndex];
-    if (opt.value) {
-        const p = document.getElementById('patente');
-        if (p && !p.value) p.value = opt.dataset.patente || '';
-        filtrarRepuestos(opt.dataset.idMarcaVehiculo || '');
-        document.getElementById('panel-repuestos').style.display = '';
-        document.getElementById('panel-libres').style.display = '';
-    } else {
-        document.getElementById('panel-repuestos').style.display = 'none';
-        document.getElementById('panel-libres').style.display = 'none';
+const CLIENTES = <?= json_encode($clientesJs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+const CLIENTES_BY_ID = {};
+const CLIENTES_BY_NOMBRE = {};
+const CLIENTES_BY_PATENTE = {};
+
+CLIENTES.forEach(function(c) {
+    CLIENTES_BY_ID[String(c.id)] = c;
+    CLIENTES_BY_NOMBRE[c.nombreOption.toLowerCase()] = c;
+    if (c.patente) {
+        CLIENTES_BY_PATENTE[c.patente.toUpperCase()] = c;
+    }
+});
+
+function setClienteSeleccionado(cliente) {
+    const idInput = document.getElementById('id_cliente');
+    const panelRep = document.getElementById('panel-repuestos');
+    const panelLib = document.getElementById('panel-libres');
+    const info = document.getElementById('cliente_seleccionado');
+    const byNombre = document.getElementById('buscar_cliente_nombre');
+    const byPatente = document.getElementById('buscar_cliente_patente');
+
+    if (!cliente) {
+        idInput.value = '';
+        panelRep.style.display = 'none';
+        panelLib.style.display = 'none';
+        info.textContent = 'Seleccioná un cliente por nombre o por patente.';
+        return;
+    }
+
+    idInput.value = cliente.id;
+    if (byNombre && byNombre.value !== cliente.nombreOption) {
+        byNombre.value = cliente.nombreOption;
+    }
+    if (byPatente && byPatente.value !== cliente.patente) {
+        byPatente.value = cliente.patente;
+    }
+
+    var resumen = cliente.nombre;
+    if (cliente.vehiculo) {
+        resumen += ' - ' + cliente.vehiculo;
+    }
+    if (cliente.patente) {
+        resumen += ' - ' + cliente.patente;
+    }
+    info.textContent = 'Cliente seleccionado: ' + resumen;
+
+    filtrarRepuestos(String(cliente.idMarcaVehiculo || ''));
+    panelRep.style.display = '';
+    panelLib.style.display = '';
+}
+
+function buscarClientePorNombre(valor) {
+    var key = (valor || '').trim().toLowerCase();
+    if (!key) {
+        setClienteSeleccionado(null);
+        return;
+    }
+    var cliente = CLIENTES_BY_NOMBRE[key] || null;
+    if (cliente) {
+        setClienteSeleccionado(cliente);
     }
 }
+
+function buscarClientePorPatente(valor) {
+    var key = (valor || '').trim().toUpperCase();
+    if (!key) {
+        setClienteSeleccionado(null);
+        return;
+    }
+
+    var cliente = CLIENTES_BY_PATENTE[key] || null;
+    if (cliente) {
+        setClienteSeleccionado(cliente);
+    }
+}
+
+function autocompletarClientePorPatente(valor) {
+    var key = (valor || '').trim().toUpperCase();
+    if (!key) {
+        setClienteSeleccionado(null);
+        return;
+    }
+
+    var exacto = CLIENTES_BY_PATENTE[key] || null;
+    if (exacto) {
+        setClienteSeleccionado(exacto);
+        return;
+    }
+
+    var empiezaCon = CLIENTES.filter(function(c) {
+        return c.patente && c.patente.toUpperCase().indexOf(key) === 0;
+    });
+    if (empiezaCon.length === 1) {
+        setClienteSeleccionado(empiezaCon[0]);
+        return;
+    }
+
+    var contiene = CLIENTES.filter(function(c) {
+        return c.patente && c.patente.toUpperCase().indexOf(key) >= 0;
+    });
+    if (contiene.length === 1) {
+        setClienteSeleccionado(contiene[0]);
+    }
+}
+
+
 
 var MULTIMARCA_ID = '8'; // id_vehiculo_marca de la marca "Multimarca"
 
@@ -854,11 +991,11 @@ function validarStock(e) {
 
 // Si el form se recargó con un cliente ya elegido (error de validación o edición), mostrar los paneles
 (function() {
-    var sel = document.getElementById('sel_cliente');
-    if (sel && sel.value) {
-        document.getElementById('panel-repuestos').style.display = '';
-        document.getElementById('panel-libres').style.display = '';
-        filtrarRepuestos(sel.options[sel.selectedIndex].dataset.idMarcaVehiculo || '');
+    var idCliente = document.getElementById('id_cliente');
+    if (idCliente && idCliente.value && CLIENTES_BY_ID[idCliente.value]) {
+        setClienteSeleccionado(CLIENTES_BY_ID[idCliente.value]);
+    } else {
+        setClienteSeleccionado(null);
     }
     // En edicion, los paneles siempre visibles
     <?php if ($isEdit ?? false): ?>

@@ -24,27 +24,27 @@ if not exist "%MYSQL_DAEMON%" (
 	exit /b 1
 )
 
-netstat -ano | findstr ":3306" | findstr "LISTENING" >nul
+netstat -ano | findstr ":3307" | findstr "LISTENING" >nul
 if errorlevel 1 (
 	echo [INFO] Iniciando MySQL 8.4...
 	start "APP_TALLER_MYSQL" /B "%MYSQL_DAEMON%" "--defaults-file=%MYSQL_DEFAULTS%"
 
 	for /L %%i in (1,1,20) do (
-		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3306); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3307); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
 		if not errorlevel 1 goto mysql_ready
 		timeout /t 1 /nobreak >nul
 	)
 
-	echo [WARN] MySQL no respondio en 3306 dentro del tiempo esperado.
+	echo [WARN] MySQL no respondio en 3307 dentro del tiempo esperado.
 ) else (
-	echo [INFO] MySQL ya estaba activo en 3306.
+	echo [INFO] MySQL ya estaba activo en 3307.
 )
 
 :mysql_ready
 if exist "%MYSQL_CLI%" (
 	if exist "%PROJECT_ROOT%\database\schema.sql" (
 		echo [INFO] Sincronizando esquema de base de datos...
-		"%MYSQL_CLI%" -u root -h 127.0.0.1 -P 3306 -e "source %PROJECT_ROOT:\=/%/database/schema.sql"
+		"%MYSQL_CLI%" -u root -h 127.0.0.1 -P 3307 -e "source %PROJECT_ROOT:\=/%/database/schema.sql"
 		if errorlevel 1 (
 			echo [WARN] No se pudo importar schema.sql automaticamente.
 			echo        Verifica credenciales de root en MySQL.
