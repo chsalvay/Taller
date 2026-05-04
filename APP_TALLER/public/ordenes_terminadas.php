@@ -20,6 +20,45 @@ try {
     exit;
 }
 
+$successMsg = '';
+$errorMsg = '';
+
+// ── Revertir una orden cerrada a abierta ──────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'revertir') {
+    $idRevertir = (int) ($_POST['id_orden'] ?? 0);
+    if ($idRevertir > 0) {
+        try {
+            $stmtCheck = $pdo->prepare(
+                'SELECT id, estado FROM ordenes_trabajo WHERE id = :id LIMIT 1'
+            );
+            $stmtCheck->execute([':id' => $idRevertir]);
+            $ordenCheck = $stmtCheck->fetch(\PDO::FETCH_ASSOC);
+
+            if ($ordenCheck && $ordenCheck['estado'] === 'cerrada') {
+                $pdo->beginTransaction();
+                
+                // Limpiar precios de todos los ítems (repuestos y tareas)
+                $pdo->prepare(
+                    'UPDATE ordenes_trabajo_detalle SET precio_final = NULL WHERE id_orden = :id'
+                )->execute([':id' => $idRevertir]);
+                
+                // Revertir estado de la orden
+                $pdo->prepare(
+                    'UPDATE ordenes_trabajo SET estado = :estado, fecha_finalizacion = NULL, monto_total = NULL WHERE id = :id'
+                )->execute([':estado' => 'abierta', ':id' => $idRevertir]);
+                
+                $pdo->commit();
+                $successMsg = "Orden #$idRevertir revertida a estado abierto.";
+            } else {
+                $errorMsg = 'La orden no existe o no está cerrada.';
+            }
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            $errorMsg = 'Error al revertir: ' . htmlspecialchars($e->getMessage());
+        }
+    }
+}
+
 // ── Ver detalle de una orden ─────────────────────────────────────────────────
 $verId = (int) ($_GET['ver'] ?? 0);
 $orden = null;
@@ -56,16 +95,41 @@ if ($verId > 0) {
 }
 
 // ── Listado de órdenes cerradas ───────────────────────────────────────────────
-$buscar      = trim($_GET['q'] ?? '');
-$showFilters = isset($_GET['show_filters']) || $buscar !== '';
+$filters = [
+    'cliente'     => trim((string) ($_GET['f_cliente']     ?? '')),
+    'patente'     => trim((string) ($_GET['f_patente']     ?? '')),
+    'fecha_desde' => trim((string) ($_GET['f_fecha_desde'] ?? '')),
+    'fecha_hasta' => trim((string) ($_GET['f_fecha_hasta'] ?? '')),
+];
+$hasActiveFilters =
+    $filters['cliente'] !== '' ||
+    $filters['patente'] !== '' ||
+    $filters['fecha_desde'] !== '' ||
+    $filters['fecha_hasta'] !== '';
+$showFilters = isset($_GET['show_filters']) || $hasActiveFilters;
+
+$where  = ["estado = 'cerrada'"];
+$params = [];
+if ($filters['cliente'] !== '') {
+    $where[] = '(cliente LIKE :f_cliente OR patente LIKE :f_cliente2)';
+    $params['f_cliente']  = '%' . $filters['cliente'] . '%';
+    $params['f_cliente2'] = '%' . $filters['cliente'] . '%';
+}
+if ($filters['patente'] !== '') {
+    $where[] = 'patente LIKE :f_patente';
+    $params['f_patente'] = '%' . $filters['patente'] . '%';
+}
+if ($filters['fecha_desde'] !== '') {
+    $where[] = 'fecha_ot >= :f_fecha_desde';
+    $params['f_fecha_desde'] = $filters['fecha_desde'];
+}
+if ($filters['fecha_hasta'] !== '') {
+    $where[] = 'fecha_ot <= :f_fecha_hasta';
+    $params['f_fecha_hasta'] = $filters['fecha_hasta'];
+}
 $sql = 'SELECT id, cliente, vehiculo, patente, fecha_ot, fecha_finalizacion, monto_total
         FROM ordenes_trabajo
-        WHERE estado = \'cerrada\'';
-$params = [];
-if ($buscar !== '') {
-    $sql .= ' AND (cliente LIKE :q OR vehiculo LIKE :q OR patente LIKE :q)';
-    $params[':q'] = '%' . $buscar . '%';
-}
+        WHERE ' . implode(' AND ', $where);
 $sql .= ' ORDER BY fecha_finalizacion DESC, id DESC';
 $stmtL = $pdo->prepare($sql);
 $stmtL->execute($params);
@@ -105,6 +169,10 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
         .costo-ref { color: #64748b; font-size: 0.88rem; }
         .subtotal { font-weight: 700; }
         .desc-libre { font-style: italic; }
+        .panel h2 { margin-top: 0; font-size: 1.1rem; margin-bottom: .75rem; }
+        label { display: block; font-size: .9rem; margin-bottom: .25rem; font-weight: 600; color: #0f172a; }
+        input[type=text], input[type=date], select { width: 100%; box-sizing: border-box; border: 1px solid #c6d2e4; border-radius: 8px; padding: .55rem; font-family: inherit; font-size: .93rem; }
+        input[type=text]:focus, input[type=date]:focus, select:focus { outline: 2px solid #0f172a; border-color: #0f172a; }
         @media print {
             body { background: #fff; margin: 0.5rem; }
             .no-print { display: none !important; }
@@ -206,7 +274,7 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
     </div>
 
     <div class="actions no-print" style="justify-content:flex-end; margin-top:0.25rem; margin-bottom:1rem;">
-        <button class="btn btn-print" onclick="window.print()">Imprimir</button>
+        <a class="btn btn-print" href="/ot_terminada_print.php?id=<?= (int)$orden['id'] ?>" target="_blank" rel="noopener">Imprimir</a>
     </div>
 
 <?php else: ?>
@@ -214,7 +282,6 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
     <div class="top">
         <div>
             <h1>Órdenes terminadas</h1>
-            <p>Historial de órdenes de trabajo cerradas.</p>
         </div>
         <div class="actions no-print">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>
@@ -224,13 +291,31 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
 
     <?php if ($showFilters): ?>
     <div class="panel">
-        <h2>Filtros de busqueda</h2>
+        <h2>Filtros de búsqueda</h2>
         <form method="GET" action="/ordenes_terminadas.php" autocomplete="off">
             <input type="hidden" name="show_filters" value="1">
-            <div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.75rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.75rem">
                 <div>
-                    <label for="q">Cliente, vehículo o patente</label>
-                    <input id="q" name="q" value="<?= htmlspecialchars($buscar) ?>" placeholder="Buscar...">
+                    <label for="f_cliente">Cliente / Patente</label>
+                    <input id="f_cliente" name="f_cliente" type="text"
+                           value="<?= htmlspecialchars($filters['cliente']) ?>"
+                           placeholder="Nombre o patente">
+                </div>
+                <div>
+                    <label for="f_patente">Patente exacta</label>
+                    <input id="f_patente" name="f_patente" type="text"
+                           value="<?= htmlspecialchars($filters['patente']) ?>"
+                           placeholder="Ej: AB123CD">
+                </div>
+                <div>
+                    <label for="f_fecha_desde">Fecha desde</label>
+                    <input id="f_fecha_desde" name="f_fecha_desde" type="date"
+                           value="<?= htmlspecialchars($filters['fecha_desde']) ?>">
+                </div>
+                <div>
+                    <label for="f_fecha_hasta">Fecha hasta</label>
+                    <input id="f_fecha_hasta" name="f_fecha_hasta" type="date"
+                           value="<?= htmlspecialchars($filters['fecha_hasta']) ?>">
                 </div>
             </div>
             <div class="actions" style="margin-top:.9rem">
@@ -240,6 +325,13 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
             </div>
         </form>
     </div>
+    <?php endif; ?>
+
+    <?php if ($successMsg): ?>
+        <div class="msg-ok"><?= htmlspecialchars($successMsg) ?></div>
+    <?php endif; ?>
+    <?php if ($errorMsg): ?>
+        <div class="msg-error"><?= htmlspecialchars($errorMsg) ?></div>
     <?php endif; ?>
 
     <div class="panel">
@@ -272,6 +364,11 @@ $lista = $stmtL->fetchAll(\PDO::FETCH_ASSOC);
                     <td>
                         <div class="actions">
                             <a href="/ordenes_terminadas.php?ver=<?= (int)$ot['id'] ?>" class="btn btn-primary btn-small">Ver detalle</a>
+                            <form method="POST" action="/ordenes_terminadas.php" style="display:inline;">
+                                <input type="hidden" name="action" value="revertir">
+                                <input type="hidden" name="id_orden" value="<?= (int)$ot['id'] ?>">
+                                <button type="submit" class="btn btn-muted btn-small" onclick="return confirm('¿Revertir la orden #<?= (int)$ot['id'] ?> a estado abierto?')">Revertir</button>
+                            </form>
                         </div>
                     </td>
                 </tr>

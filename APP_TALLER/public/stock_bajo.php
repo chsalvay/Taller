@@ -110,7 +110,6 @@ try {
     <div class="top">
         <div>
             <h1>Repuestos con stock bajo</h1>
-            <p>Repuestos cuyo stock actual es igual o menor al mínimo registrado.</p>
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>

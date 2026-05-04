@@ -15,7 +15,7 @@ final class Database
         self::loadEnv($projectRoot . DIRECTORY_SEPARATOR . '.env');
 
         $host = getenv('DB_HOST') ?: '127.0.0.1';
-        $port = getenv('DB_PORT') ?: '3306';
+        $port = getenv('DB_PORT') ?: '3307';
         $database = getenv('DB_DATABASE') ?: 'app_taller';
         $username = getenv('DB_USERNAME') ?: 'root';
         $password = getenv('DB_PASSWORD') ?: '';

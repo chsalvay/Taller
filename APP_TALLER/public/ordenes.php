@@ -448,7 +448,6 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
   <div class="top">
     <div>
       <h1>Órdenes de Trabajo</h1>
-      <p>Alta y seguimiento de órdenes de trabajo.</p>
     </div>
     <div class="actions">
       <a href="/dashboard.php" class="btn btn-muted">Volver al panel</a>
@@ -492,6 +491,9 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
         $descVals = explode(' | ', $formOrden['descripcion']);
     }
     if (empty($descVals)) $descVals = [''];
+    // Filtrar de $detLibres las tareas que ya están en descripcion para no duplicarlas
+    $descValsNorm = array_map(fn($v) => strtolower(trim((string)$v)), $descVals);
+    $detLibres = array_values(array_filter($detLibres, fn($l) => !in_array(strtolower(trim((string)$l)), $descValsNorm, true)));
     // Cliente preseleccionado
         $preClienteId = $isEdit ? $formOrden['id_cliente'] : (int)($_POST['id_cliente'] ?? 0);
         $preIdMarca   = 0;
@@ -571,7 +573,6 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
                         </datalist>
                     </div>
                 </div>
-                <div id="cliente_seleccionado" class="selected-client"></div>
       </div>
       <div class="form-group" style="flex:0 0 auto">
         <label for="fecha_ot">Fecha de la OT *</label>
@@ -591,13 +592,13 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
       <?php endif; ?>
     </div>
     <div style="margin-top:.9rem">
-        <label>Descripción / motivo</label>
+        <label>Descripción / Repuesto fuera de stock</label>
         <div class="libre-list" id="descList">
-          <?php foreach ($descVals as $i => $dv): ?>
+          <?php foreach ($descVals as $i => $dv): $isLast = ($i === count($descVals) - 1); ?>
           <div class="libre-row">
             <input type="text" name="descripciones[]" autocomplete="off" placeholder="Motivo del ingreso"
                    value="<?= htmlspecialchars((string)$dv) ?>">
-            <button type="button" class="btn-add-inline" onclick="addDesc()" style="display:none">+ Agregar</button>
+            <button type="button" class="btn-add-inline" onclick="addDesc()"<?= $isLast ? '' : ' style="display:none"' ?>>+ Agregar</button>
             <button type="button" class="btn-remove" onclick="removeDesc(this)">&#10005;</button>
           </div>
           <?php endforeach; ?>
@@ -648,30 +649,10 @@ input[type=text]:focus,input[type=date]:focus,select:focus,textarea:focus{outlin
     <?php endif; ?>
   </div>
 
-  <!-- ── ITEMS LIBRES ── -->
-  <div class="panel" id="panel-libres" style="display:none">
-    <h2>Repuestos sin registrar</h2>
-    <p style="font-size:.85rem;color:#64748b;margin-top:0">Escribí cualquier ítem que no figure en el stock.</p>
-    <div class="libre-list" id="libreList">
-      <?php
-        $initLibres = ($isEdit && !empty($detLibres)) ? $detLibres : [''];
-        foreach ($initLibres as $il):
-      ?>
-      <div class="libre-row">
-        <input type="text" name="items_libres[]" autocomplete="off" placeholder="Descripción del trabajo o repuesto"
-               value="<?= htmlspecialchars((string)$il) ?>">
-        <button type="button" class="btn-add-inline" onclick="addLibre()" style="display:none">+ Agregar</button>
-        <button type="button" class="btn-remove" onclick="removeLibre(this)">✕</button>
-      </div>
-      <?php endforeach; ?>
-    </div>
-    <button type="button" class="btn btn-secondary btn-sm btn-add-libre" style="display:none" onclick="addLibre()">+ Agregar ítem</button>
-  </div>
-
   <div class="form-actions">
     <a href="/ordenes.php" class="btn btn-muted">Cancelar</a>
         <?php if ($isEdit): ?>
-            <a href="/ordenes_pdf.php?id=<?= (int) $formOrden['id'] ?>" target="_blank" rel="noopener" class="btn btn-muted">Imprimir</a>
+            <a href="/orden_print.php?id=<?= (int) $formOrden['id'] ?>" target="_blank" rel="noopener" class="btn btn-muted">Imprimir</a>
         <?php else: ?>
             <button type="button" class="btn btn-muted" disabled title="Guardá la orden para habilitar la impresión">Imprimir</button>
         <?php endif; ?>
@@ -799,7 +780,7 @@ function setClienteSeleccionado(cliente) {
         idInput.value = '';
         panelRep.style.display = 'none';
         panelLib.style.display = 'none';
-        info.textContent = 'Seleccioná un cliente por nombre o por patente.';
+        if (info) info.textContent = '';
         return;
     }
 
@@ -818,7 +799,7 @@ function setClienteSeleccionado(cliente) {
     if (cliente.patente) {
         resumen += ' - ' + cliente.patente;
     }
-    info.textContent = 'Cliente seleccionado: ' + resumen;
+    if (info) info.textContent = '';
 
     filtrarRepuestos(String(cliente.idMarcaVehiculo || ''));
     panelRep.style.display = '';

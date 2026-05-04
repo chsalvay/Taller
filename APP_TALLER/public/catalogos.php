@@ -753,7 +753,6 @@ $proveedores = $pdo->query(
     <div class="top">
         <div>
             <h1>Catalogos</h1>
-            <p>Selecciona una opcion y gestiona su CRUD.</p>
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>

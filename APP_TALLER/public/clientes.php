@@ -384,7 +384,6 @@ try {
     <div class="top">
         <div>
             <h1>Clientes</h1>
-            <p>Alta, modificacion y baja logica de clientes.</p>
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>

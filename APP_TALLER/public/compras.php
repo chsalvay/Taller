@@ -563,12 +563,12 @@ if ($selectedId > 0 && $error === '') {
     <div class="top">
         <div>
             <h1>Repuestos</h1>
-            <p>Alta, modificacion y baja logica de repuestos.</p>
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>
             <a class="btn btn-muted" href="/compras.php?show_filters=1">Buscar</a>
             <a class="btn btn-muted" href="/actualizar_repuestos.php">Actualizar lista</a>
+            <a class="btn btn-muted" href="/repuestos_print.php" target="_blank" rel="noopener">Imprimir</a>
             <a class="btn btn-primary" href="/compras.php?new=1">Nuevo</a>
         </div>
     </div>

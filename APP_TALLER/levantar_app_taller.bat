@@ -5,11 +5,13 @@ set "PROJECT_ROOT=%~dp0"
 if "%PROJECT_ROOT:~-1%"=="\" set "PROJECT_ROOT=%PROJECT_ROOT:~0,-1%"
 set "MYSQL8_BIN=C:\Program Files\MySQL\MySQL Server 8.4\bin"
 set "MYSQL_DEFAULTS=%PROJECT_ROOT%\storage\mysql8.ini"
+set "MYSQL_PORT=3307"
 set "MYSQL_CLI=%MYSQL8_BIN%\mysql.exe"
 set "MYSQL_DAEMON=%MYSQL8_BIN%\mysqld.exe"
 
 echo.
 echo [APP_TALLER] Iniciando entorno local...
+echo [INFO] Este script usa MySQL y no inicia MariaDB.
 
 where php >nul 2>&1
 if errorlevel 1 (
@@ -24,27 +26,27 @@ if not exist "%MYSQL_DAEMON%" (
 	exit /b 1
 )
 
-netstat -ano | findstr ":3307" | findstr "LISTENING" >nul
+netstat -ano | findstr ":%MYSQL_PORT%" | findstr "LISTENING" >nul
 if errorlevel 1 (
 	echo [INFO] Iniciando MySQL 8.4...
 	start "APP_TALLER_MYSQL" /B "%MYSQL_DAEMON%" "--defaults-file=%MYSQL_DEFAULTS%"
 
 	for /L %%i in (1,1,20) do (
-		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',3307); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+		powershell -NoProfile -Command "try { $c = New-Object System.Net.Sockets.TcpClient; $c.Connect('127.0.0.1',%MYSQL_PORT%); if ($c.Connected) { $c.Close(); exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
 		if not errorlevel 1 goto mysql_ready
 		timeout /t 1 /nobreak >nul
 	)
 
-	echo [WARN] MySQL no respondio en 3307 dentro del tiempo esperado.
+	echo [WARN] MySQL no respondio en %MYSQL_PORT% dentro del tiempo esperado.
 ) else (
-	echo [INFO] MySQL ya estaba activo en 3307.
+	echo [INFO] MySQL ya estaba activo en %MYSQL_PORT%.
 )
 
 :mysql_ready
 if exist "%MYSQL_CLI%" (
 	if exist "%PROJECT_ROOT%\database\schema.sql" (
 		echo [INFO] Sincronizando esquema de base de datos...
-		"%MYSQL_CLI%" -u root -h 127.0.0.1 -P 3307 -e "source %PROJECT_ROOT:\=/%/database/schema.sql"
+		"%MYSQL_CLI%" -u root -h 127.0.0.1 -P %MYSQL_PORT% -e "source %PROJECT_ROOT:\=/%/database/schema.sql"
 		if errorlevel 1 (
 			echo [WARN] No se pudo importar schema.sql automaticamente.
 			echo        Verifica credenciales de root en MySQL.

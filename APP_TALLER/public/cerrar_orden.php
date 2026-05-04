@@ -64,9 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'termi
                 ]);
             }
 
-            // Insertar tareas de la descripción de la orden como líneas del detalle
+            // Sincronizar tareas (descripciones libres) con el campo descripcion de la orden.
+            // Se borran las anteriores y se insertan las actuales para evitar desfases.
             $descTexts  = $_POST['desc_texts']  ?? [];
             $descPrecos = $_POST['desc_precio']  ?? [];
+
+            $pdo->prepare(
+                'DELETE FROM ordenes_trabajo_detalle WHERE id_orden = :id AND id_repuesto IS NULL'
+            )->execute([':id' => $idOrden]);
+
             $stmtIns = $pdo->prepare(
                 'INSERT INTO ordenes_trabajo_detalle (id_orden, descripcion_libre, cantidad, precio_final)
                  VALUES (:id_orden, :desc, 1, :precio)'
@@ -114,6 +120,7 @@ $stmtDet = $pdo->prepare(
             r.codigo,
             r.nombre AS rep_nombre,
             COALESCE(r.precio_costo, 0) AS precio_costo,
+            r.precio_venta,
             COALESCE(u.abreviatura, \'\') AS unidad
      FROM ordenes_trabajo_detalle d
      LEFT JOIN repuestos r ON r.id_repuesto = d.id_repuesto
@@ -125,6 +132,13 @@ $stmtDet->execute([':id' => $idOrden]);
 $items = $stmtDet->fetchAll(\PDO::FETCH_ASSOC);
 
 $ordenCerrada = ($orden['estado'] === 'cerrada');
+
+// Cuando la orden está abierta, solo mostrar repuestos en $items;
+// las tareas se generan desde el campo descripcion (descItems).
+// Cuando está cerrada, mostrar todos los ítems incluyendo descripcion_libre.
+if (!$ordenCerrada) {
+    $items = array_values(array_filter($items, fn($it) => !empty($it['id_repuesto'])));
+}
 
 // Tareas escritas en la descripción de la orden (visibles solo si no está cerrada,
 // una vez cerradas se insertan como filas en ordenes_trabajo_detalle)
@@ -145,8 +159,9 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
     <style>
         body { font-family: Segoe UI, Arial, sans-serif; margin: 1.5rem; background: #f3f6fb; color: #0f172a; }
         .container { max-width: 960px; margin: 0 auto; }
-        .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
-        .top-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .top { margin-bottom: 1rem; }
+        .title-row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .title-row h1 { margin: 0; }
         .btn { display: inline-block; text-decoration: none; border: 0; border-radius: 10px; padding: 0.65rem 1rem; cursor: pointer; font-weight: 600; font-size: 0.95rem; }
         .btn-muted { background: #e2e8f0; color: #0f172a; }
         .btn-primary { background: #0f172a; color: #fff; }
@@ -177,9 +192,10 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
         .total-label { font-size: 1.05rem; font-weight: 700; }
         .total-value { font-size: 1.3rem; font-weight: 800; color: #0f172a; }
         .desc-libre { font-style: italic; color: #334155; }
+        .print-action { display: flex; justify-content: flex-end; margin-top: 1rem; }
         @media print {
             body { background: #fff; margin: 0.5rem; }
-            .top-actions, .no-print { display: none !important; }
+            .no-print { display: none !important; }
             .panel { border: 1px solid #999; box-shadow: none; }
             .precio-input { border: none; background: transparent; }
         }
@@ -189,16 +205,15 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
 <div class="container">
     <div class="top">
         <div>
-            <h1>Presupuesto — OT #<?= $idOrden ?></h1>
+            <div class="title-row">
+                <h1>Presupuesto — OT #<?= $idOrden ?></h1>
+                <a class="btn btn-muted no-print" href="/ordenes.php">Volver a órdenes</a>
+            </div>
             <?php if ($ordenCerrada): ?>
                 <p style="color:#16a34a;font-weight:600;">Esta orden ya fue cerrada.</p>
             <?php else: ?>
                 <p>Ingresá el precio de venta por ítem para calcular el total.</p>
             <?php endif; ?>
-        </div>
-        <div class="top-actions no-print">
-            <a class="btn btn-muted" href="/ordenes.php">Volver a órdenes</a>
-            <button class="btn btn-print" onclick="window.print()">Imprimir</button>
         </div>
     </div>
 
@@ -246,12 +261,6 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
                 <span>$ <?= number_format((float)$orden['monto_total'], 2, ',', '.') ?></span>
             </div>
             <?php endif; ?>
-            <?php if (!empty($orden['descripcion'])): ?>
-            <div class="info-item" style="grid-column: 1/-1;">
-                <label>Descripción</label>
-                <span><?= htmlspecialchars((string) $orden['descripcion']) ?></span>
-            </div>
-            <?php endif; ?>
         </div>
     </div>
 
@@ -284,6 +293,7 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
                         : '<span class="desc-libre">* ' . htmlspecialchars((string) $item['descripcion_libre']) . '</span>';
                     $codigo      = $esRepuesto ? htmlspecialchars((string) $item['codigo']) : '—';
                     $costo       = $esRepuesto ? (float) $item['precio_costo'] : 0.0;
+                    $precioVentaDB = $esRepuesto && $item['precio_venta'] !== null ? (float) $item['precio_venta'] : null;
                     $cantidad    = (int) $item['cantidad'];
                 ?>
                 <tr>
@@ -301,7 +311,7 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
                             name="precio_final[<?= (int)$item['id'] ?>]"
                             min="0"
                             step="0.01"
-                            value="<?= $item['precio_final'] !== null ? number_format((float)$item['precio_final'], 2, '.', '') : number_format($costo, 2, '.', '') ?>"
+                            value="<?= $item['precio_final'] !== null ? number_format((float)$item['precio_final'], 2, '.', '') : ($precioVentaDB !== null ? number_format($precioVentaDB, 2, '.', '') : number_format($costo, 2, '.', '')) ?>"
                             data-cantidad="<?= $cantidad ?>"
                             placeholder="0,00"
                             <?= $ordenCerrada ? 'readonly' : '' ?>
@@ -341,6 +351,11 @@ if (!$ordenCerrada && !empty($orden['descripcion'])) {
             </tr>
             </tfoot>
         </table>
+        <?php if ($ordenCerrada): ?>
+        <div class="print-action no-print">
+            <button type="button" class="btn btn-print" onclick="window.print()">Imprimir</button>
+        </div>
+        <?php endif; ?>
         <?php if (!$ordenCerrada): ?>
         <div class="no-print" style="display:flex;justify-content:flex-end;margin-top:1.25rem;">
             <button type="submit" form="form-terminar" class="btn btn-success"

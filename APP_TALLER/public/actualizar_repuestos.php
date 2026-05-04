@@ -217,7 +217,6 @@ function filterQS(array $filters, string $extra = ''): string
     <div class="top">
         <div>
             <h1>Actualizar lista de repuestos</h1>
-            <p>Filtrá y actualizá precios de costo y venta en forma masiva.</p>
         </div>
         <div class="actions" style="margin-top:0;">
             <a class="btn btn-muted" href="/compras.php">Volver a Repuestos</a>

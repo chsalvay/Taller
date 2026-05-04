@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'precio_venta' => $precioVenta,
             ];
 
-            $montoTotal += $cantidad * $precioVenta;
+            $montoTotal += $precioVenta;
         }
 
         $formDetalles = [];
@@ -404,6 +404,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $editId = (int) ($_GET['edit'] ?? 0);
 $newRequested = isset($_GET['new']);
 
+$filters = [
+    'cliente'     => trim((string) ($_GET['f_cliente'] ?? '')),
+    'numero'      => trim((string) ($_GET['f_numero'] ?? '')),
+    'estado'      => (string) ($_GET['f_estado'] ?? 'activos'),
+    'fecha_desde' => trim((string) ($_GET['f_fecha_desde'] ?? '')),
+    'fecha_hasta' => trim((string) ($_GET['f_fecha_hasta'] ?? '')),
+];
+
+$hasActiveFilters =
+    $filters['cliente'] !== '' ||
+    $filters['numero'] !== '' ||
+    $filters['estado'] !== 'activos' ||
+    $filters['fecha_desde'] !== '' ||
+    $filters['fecha_hasta'] !== '';
+
+$showFilters = isset($_GET['show_filters']) || $hasActiveFilters;
+
 if ($newRequested) {
     $showForm = true;
     $formMode = 'new';
@@ -461,7 +478,37 @@ if ($editId > 0 && $error === '') {
 
 $presupuestos = [];
 try {
-    $presupuestos = $pdo->query(
+    $where = [];
+    $params = [];
+
+    if ($filters['estado'] === 'activos') {
+        $where[] = 'p.activo = 1';
+    } elseif ($filters['estado'] === 'inactivos') {
+        $where[] = 'p.activo = 0';
+    }
+
+    if ($filters['cliente'] !== '') {
+        $where[] = '(p.cliente LIKE :f_cliente OR p.numero_presupuesto LIKE :f_cliente_num)';
+        $params['f_cliente'] = '%' . $filters['cliente'] . '%';
+        $params['f_cliente_num'] = '%' . $filters['cliente'] . '%';
+    }
+
+    if ($filters['numero'] !== '') {
+        $where[] = 'p.numero_presupuesto LIKE :f_numero';
+        $params['f_numero'] = '%' . $filters['numero'] . '%';
+    }
+
+    if ($filters['fecha_desde'] !== '') {
+        $where[] = 'p.fecha >= :f_fecha_desde';
+        $params['f_fecha_desde'] = $filters['fecha_desde'];
+    }
+
+    if ($filters['fecha_hasta'] !== '') {
+        $where[] = 'p.fecha <= :f_fecha_hasta';
+        $params['f_fecha_hasta'] = $filters['fecha_hasta'];
+    }
+
+    $sqlPresupuestos =
         'SELECT p.id_presupuesto,
                 p.numero_presupuesto,
                 p.fecha,
@@ -469,11 +516,14 @@ try {
                 p.monto_total,
                 COUNT(pd.id_detalle) AS cant_items
          FROM presupuesto p
-         LEFT JOIN presupuesto_detalle pd ON pd.id_presupuesto = p.id_presupuesto
-         WHERE p.activo = 1
-         GROUP BY p.id_presupuesto, p.numero_presupuesto, p.fecha, p.cliente, p.monto_total
-         ORDER BY p.id_presupuesto DESC'
-    )->fetchAll(PDO::FETCH_ASSOC);
+         LEFT JOIN presupuesto_detalle pd ON pd.id_presupuesto = p.id_presupuesto' .
+        (count($where) > 0 ? ' WHERE ' . implode(' AND ', $where) : '') .
+        ' GROUP BY p.id_presupuesto, p.numero_presupuesto, p.fecha, p.cliente, p.monto_total
+          ORDER BY p.id_presupuesto DESC';
+
+    $stmtPresupuestos = $pdo->prepare($sqlPresupuestos);
+    $stmtPresupuestos->execute($params);
+    $presupuestos = $stmtPresupuestos->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $error = 'No fue posible cargar la lista de presupuestos: ' . $e->getMessage();
 }
@@ -503,7 +553,7 @@ try {
         .actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
         .msg-error { background: #fee2e2; color: #991b1b; padding: 0.6rem; border-radius: 8px; margin-bottom: 1rem; }
         .msg-ok { background: #dcfce7; color: #166534; padding: 0.6rem; border-radius: 8px; margin-bottom: 1rem; }
-        .detalle-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; gap: 0.75rem; }
+        .detalle-actions { display: flex; justify-content: flex-end; align-items: center; margin-top: 0.75rem; gap: 0.75rem; }
         .btn-small { padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.86rem; }
         .btn-icon { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
         .table-actions { display: flex; gap: 0.4rem; align-items: center; }
@@ -535,11 +585,14 @@ try {
     <div class="top">
         <div>
             <h1>Presupuesto</h1>
-            <p>Alta, modificación y baja lógica de presupuestos.</p>
         </div>
         <div class="actions">
             <a class="btn btn-muted" href="/dashboard.php">Volver al panel</a>
-            <a class="btn btn-primary" href="/presupuestos.php?new=1">Nuevo</a>
+            <?php if (!$showForm): ?>
+                <a class="btn btn-muted" href="/presupuestos.php?show_filters=1">Buscar</a>
+                <a class="btn btn-muted" href="/presupuestos_list_print.php" target="_blank" rel="noopener">Imprimir</a>
+                <a class="btn btn-primary" href="/presupuestos.php?new=1">Nuevo</a>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -660,9 +713,9 @@ try {
                             </select>
                         </td>
                         <td><input name="detalle_material[]" maxlength="150" value="<?= htmlspecialchars((string) $d['material']) ?>"></td>
-                        <td class="num"><input class="num" name="detalle_cantidad[]" type="number" min="1" step="1" value="<?= htmlspecialchars((string) $d['cantidad']) ?>"></td>
+                        <td class="num"><input class="num" name="detalle_cantidad[]" type="number" min="1" step="1" value="<?= htmlspecialchars((string) $d['cantidad']) ?>" oninput="actualizarPrecioVentaPorCantidad(this)"></td>
                         <td class="num"><input class="num" name="detalle_precio_costo[]" type="number" min="0" step="0.01" value="<?= htmlspecialchars((string) $d['precio_costo']) ?>" readonly style="background:#f1f5f9;color:#64748b;"></td>
-                        <td class="num"><input class="num" name="detalle_precio_venta[]" type="number" min="0" step="0.01" value="<?= htmlspecialchars((string) $d['precio_venta']) ?>"></td>
+                        <td class="num"><input class="num" name="detalle_precio_venta[]" type="number" min="0" step="0.01" value="<?= htmlspecialchars((string) round($d['precio_venta'] * $d['cantidad'], 2)) ?>" data-unit-price="<?= htmlspecialchars((string) $d['precio_venta']) ?>"></td>
                         <td>
                             <div class="table-actions">
                                 <button type="button" class="btn btn-muted btn-icon" onclick="agregarFilaDetalle()" title="Agregar item">&#43;</button>
@@ -677,7 +730,7 @@ try {
             <div class="detalle-actions">
                 <div class="actions">
                     <?php if ((int) $form['id_presupuesto'] > 0): ?>
-                        <a class="btn btn-muted" href="/presupuestos_pdf.php?id=<?= (int) $form['id_presupuesto'] ?>" target="_blank" rel="noopener">Imprimir</a>
+                        <a class="btn btn-muted" href="/presupuesto_print.php?id=<?= (int) $form['id_presupuesto'] ?>" target="_blank" rel="noopener">Imprimir</a>
                     <?php else: ?>
                         <button class="btn btn-muted" type="button" disabled title="Guardá el presupuesto para habilitar la impresión">Imprimir</button>
                     <?php endif; ?>
@@ -690,6 +743,46 @@ try {
     <?php endif; ?>
 
     <?php if (!$showForm): ?>
+    <?php if ($showFilters): ?>
+    <div class="panel">
+        <h2>Filtros de b&uacute;squeda</h2>
+        <form method="get" action="/presupuestos.php" autocomplete="off">
+            <input type="hidden" name="show_filters" value="1">
+            <div class="grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.65rem">
+                <div>
+                    <label for="f_cliente">Cliente / N&uacute;mero</label>
+                    <input id="f_cliente" name="f_cliente" type="text" value="<?= htmlspecialchars($filters['cliente']) ?>" placeholder="Nombre o n&uacute;mero">
+                </div>
+                <div>
+                    <label for="f_numero">N&uacute;mero exacto</label>
+                    <input id="f_numero" name="f_numero" type="text" value="<?= htmlspecialchars($filters['numero']) ?>" placeholder="Ej: 12">
+                </div>
+                <div>
+                    <label for="f_estado">Estado</label>
+                    <select id="f_estado" name="f_estado">
+                        <option value="todos" <?= $filters['estado'] === 'todos' ? 'selected' : '' ?>>Todos</option>
+                        <option value="activos" <?= $filters['estado'] === 'activos' ? 'selected' : '' ?>>Activos</option>
+                        <option value="inactivos" <?= $filters['estado'] === 'inactivos' ? 'selected' : '' ?>>Inactivos</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="f_fecha_desde">Fecha desde</label>
+                    <input id="f_fecha_desde" name="f_fecha_desde" type="date" value="<?= htmlspecialchars($filters['fecha_desde']) ?>">
+                </div>
+                <div>
+                    <label for="f_fecha_hasta">Fecha hasta</label>
+                    <input id="f_fecha_hasta" name="f_fecha_hasta" type="date" value="<?= htmlspecialchars($filters['fecha_hasta']) ?>">
+                </div>
+            </div>
+            <div class="actions" style="margin-top:.9rem">
+                <button class="btn btn-primary" type="submit">Buscar</button>
+                <a class="btn btn-muted" href="/presupuestos.php?show_filters=1">Limpiar</a>
+                <a class="btn btn-muted" href="/presupuestos.php">Cancelar</a>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+
     <div class="panel">
         <h2>Lista de presupuestos</h2>
         <table>
@@ -766,9 +859,9 @@ try {
             </select>
         </td>
         <td><input name="detalle_material[]" maxlength="150"></td>
-        <td class="num"><input class="num" name="detalle_cantidad[]" type="number" min="1" step="1" value="1"></td>
+        <td class="num"><input class="num" name="detalle_cantidad[]" type="number" min="1" step="1" value="1" oninput="actualizarPrecioVentaPorCantidad(this)"></td>
         <td class="num"><input class="num" name="detalle_precio_costo[]" type="number" min="0" step="0.01" value="0" readonly style="background:#f1f5f9;color:#64748b;"></td>
-        <td class="num"><input class="num" name="detalle_precio_venta[]" type="number" min="0" step="0.01" value="0"></td>
+        <td class="num"><input class="num" name="detalle_precio_venta[]" type="number" min="0" step="0.01" value="0" data-unit-price="0"></td>
         <td>
             <div class="table-actions">
                 <button type="button" class="btn btn-muted btn-icon" onclick="agregarFilaDetalle()" title="Agregar item">&#43;</button>
@@ -899,6 +992,18 @@ function agregarFilaDetalle() {
     refrescarSelectsMaterial();
 }
 
+function actualizarPrecioVentaPorCantidad(cantidadInput) {
+    var row = cantidadInput.closest('tr');
+    if (!row) return;
+    var precioVenta = row.querySelector('input[name="detalle_precio_venta[]"]');
+    if (!precioVenta) return;
+    var unitPrice = parseFloat(precioVenta.getAttribute('data-unit-price') || '0');
+    if (unitPrice <= 0) return;
+    var cant = parseInt(cantidadInput.value, 10);
+    if (cant < 1) cant = 1;
+    precioVenta.value = String(Math.round(unitPrice * cant * 100) / 100);
+}
+
 function quitarFilaDetalle(btn) {
     var body = document.getElementById('detalle-body');
     if (!body) return;
@@ -926,8 +1031,14 @@ function completarDesdeRepuesto(selectEl) {
         precioCosto.value = opt.getAttribute('data-precio-costo') || '0';
     }
 
-    if (precioVenta && (!precioVenta.value || Number(precioVenta.value) <= 0)) {
-        precioVenta.value = opt.getAttribute('data-precio-venta') || '0';
+    if (precioVenta) {
+        var unitPrice = parseFloat(opt.getAttribute('data-precio-venta') || '0');
+        var cant = parseInt((row.querySelector('input[name="detalle_cantidad[]"]') || {}).value || '1', 10);
+        if (cant < 1) cant = 1;
+        precioVenta.setAttribute('data-unit-price', String(unitPrice));
+        if (!precioVenta.value || Number(precioVenta.value) <= 0) {
+            precioVenta.value = String(unitPrice * cant);
+        }
     }
 }
 
