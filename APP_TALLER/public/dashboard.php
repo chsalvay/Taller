@@ -42,6 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
 
 // Repuestos en stock mínimo o por debajo
 $lowStockItems = [];
+
+// Turnos pendientes de hoy
+$pendingTurnos = [];
 try {
     $pdo = Database::connect($projectRoot);
     $lowStockItems = $pdo->query('
@@ -50,6 +53,17 @@ try {
         WHERE activo = 1 AND stock_actual <= stock_minimo
         ORDER BY stock_actual ASC
     ')->fetchAll(\PDO::FETCH_ASSOC);
+
+    // Obtener turnos pendientes para hoy
+    $today = date('Y-m-d');
+    $pendingTurnos = $pdo->prepare('
+        SELECT id_turno, cliente, vehiculo, hora_turno, telefono
+        FROM turnos
+        WHERE fecha_turno = ? AND estado = "pendiente"
+        ORDER BY hora_turno ASC
+    ');
+    $pendingTurnos->execute([$today]);
+    $pendingTurnos = $pendingTurnos->fetchAll(\PDO::FETCH_ASSOC);
 } catch (Throwable) {}
 ?>
 <!doctype html>
@@ -123,7 +137,7 @@ try {
             color: #fff;
             outline: none;
         }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1.5rem; }
         .module { background: #0f172a; color: #fff; text-align: center; padding: 1.4rem 1rem; border-radius: 12px; text-decoration: none; }
         .module:hover { opacity: 0.9; }
         .badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; background: #dbeafe; color: #1e3a8a; font-size: 0.85rem; }
@@ -134,6 +148,12 @@ try {
         .stock-badge { background: #c2410c; color: #fff; border-radius: 999px; padding: .15rem .55rem; font-size: .82rem; font-weight: 700; }
         .btn-stock { background: #c2410c; color: #fff; padding: .55rem 1.1rem; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: .9rem; white-space: nowrap; }
         .btn-stock:hover { background: #9a3412; }
+        /* Alerta turnos */
+        .turnos-alert { margin-top: 1.25rem; background: #dbeafe; border: 1px solid #7dd3fc; border-radius: 10px; padding: 1rem 1.25rem; }
+        .turnos-alert-msg { font-weight: 700; color: #0c4a6e; font-size: .97rem; display: flex; align-items: center; gap: .5rem; margin-bottom: 0.75rem; }
+        .turnos-badge { background: #0284c7; color: #fff; border-radius: 999px; padding: .15rem .55rem; font-size: .82rem; font-weight: 700; }
+        .turnos-list { max-height: 250px; overflow-y: auto; }
+        .turnos-list-item { padding: 0.7rem 0.85rem; background: rgba(255,255,255,0.6); border-radius: 6px; margin-bottom: 0.6rem; font-size: 0.92rem; color: #0c4a6e; font-weight: 500; border-left: 3px solid #0284c7; }
         /* Stock ok */
         .stock-ok { margin-top: 1.25rem; background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: .9rem 1.25rem; color: #166534; font-weight: 600; font-size: .95rem; }
         .btn-controlar { background: #0f172a; color: #fff; padding: .55rem 1.1rem; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: .9rem; text-align: center; }
@@ -147,6 +167,12 @@ try {
     </style>
 </head>
 <body>
+<script>
+    // Auto-refresh cada 30 segundos para actualizar turnos pendientes
+    setTimeout(function() {
+        location.reload();
+    }, 30000);
+</script>
 <div class="card">
     <div class="top">
         <div>
@@ -180,6 +206,26 @@ try {
     </div>
     <?php endif; ?>
 
+    <?php if (!empty($pendingTurnos)): ?>
+    <div class="turnos-alert">
+        <span class="turnos-alert-msg">
+            📅 Tienes <span class="turnos-badge"><?= count($pendingTurnos) ?></span> turno<?= count($pendingTurnos) !== 1 ? 's' : '' ?> pendiente<?= count($pendingTurnos) !== 1 ? 's' : '' ?> para hoy.
+        </span>
+        <div class="turnos-list">
+            <?php foreach ($pendingTurnos as $turno): ?>
+                <div class="turnos-list-item">
+                    <strong><?= htmlspecialchars((string) $turno['cliente']) ?></strong> - 
+                    <?= htmlspecialchars((string) $turno['vehiculo']) ?> - 
+                    <strong><?= htmlspecialchars((string) $turno['hora_turno']) ?></strong>
+                    <?php if ($turno['telefono']): ?>
+                        - <?= htmlspecialchars((string) $turno['telefono']) ?>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if ($isAdmin): ?>
         <nav class="menu-bar" aria-label="Menu principal">
             <div class="menu-item">
@@ -204,6 +250,7 @@ try {
             <a class="module" href="/presupuestos.php">Presupuestos</a>
             <a class="module" href="/clientes.php">Clientes</a>
             <a class="module" href="/ordenes_terminadas.php">Ordenes terminadas</a>
+            <a class="module" href="/turnos.php">Turnos</a>
         </div>
     <?php else: ?>
         <p>Tu rol no tiene modulos asignados.</p>

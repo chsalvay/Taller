@@ -150,6 +150,19 @@ CREATE TABLE IF NOT EXISTS ordenes_trabajo_detalle (
   CONSTRAINT fk_otd_repuesto FOREIGN KEY (id_repuesto) REFERENCES repuestos(id_repuesto) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS turnos (
+  id_turno INT AUTO_INCREMENT PRIMARY KEY,
+  cliente VARCHAR(150) NOT NULL,
+  vehiculo VARCHAR(150) NOT NULL,
+  fecha_turno DATE NOT NULL,
+  hora_turno TIME NOT NULL,
+  telefono VARCHAR(30) NULL,
+  descripcion TEXT NULL,
+  estado ENUM('pendiente', 'confirmado', 'cancelado', 'completado') NOT NULL DEFAULT 'pendiente',
+  fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_actualizacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS compatibilidad_vehiculos (
   id_compatibilidad INT AUTO_INCREMENT PRIMARY KEY,
   id_repuesto INT NOT NULL,
